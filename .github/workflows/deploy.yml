@@ -25,11 +25,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Guard: no GTABase data in the repo
+      - name: "Guard: no GTABase data in the repo"
         run: npm run guard
       - run: npm test
       - run: npm run build
-      - name: Guard: no GTABase data in the build
+      - name: "Guard: no GTABase data in the build"
         run: npm run guard
       - name: E2E (iPhone 13 + Pixel 7, synthetic fixture)
         run: |
