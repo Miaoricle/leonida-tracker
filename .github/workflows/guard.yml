@@ -1,0 +1,10 @@
+name: Guard (no private data)
+on:
+  push:
+  pull_request:
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/check-no-private-data.mjs
