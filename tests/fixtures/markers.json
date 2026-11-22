@@ -1,0 +1,94 @@
+[
+ {
+  "id": "test-hp-1",
+  "category": "hidden-package",
+  "name": "Test package A",
+  "x": -2400,
+  "y": -5500,
+  "description": "Synthetic test marker"
+ },
+ {
+  "id": "test-hp-2",
+  "category": "hidden-package",
+  "name": "Test package B",
+  "x": -700,
+  "y": 400,
+  "description": "Synthetic test marker"
+ },
+ {
+  "id": "test-hp-3",
+  "category": "hidden-package",
+  "name": "Test package C",
+  "x": -1200,
+  "y": 180,
+  "description": "Synthetic test marker"
+ },
+ {
+  "id": "test-hp-4",
+  "category": "hidden-package",
+  "name": "Test package D",
+  "x": -650,
+  "y": 1090,
+  "description": "Synthetic test marker"
+ },
+ {
+  "id": "test-hp-5",
+  "category": "hidden-package",
+  "name": "Test package E",
+  "x": -3000,
+  "y": 4500,
+  "description": "Synthetic test marker"
+ },
+ {
+  "id": "test-hp-6",
+  "category": "hidden-package",
+  "name": "Test package F",
+  "x": -1400,
+  "y": 2860,
+  "description": "Synthetic test marker"
+ },
+ {
+  "id": "test-hp-7",
+  "category": "hidden-package",
+  "name": "Test package G",
+  "x": -5500,
+  "y": -3500,
+  "description": "Synthetic test marker"
+ },
+ {
+  "id": "test-hp-8",
+  "category": "hidden-package",
+  "name": "Test package H",
+  "x": -2350,
+  "y": -3400,
+  "description": "Synthetic test marker"
+ },
+ {
+  "id": "test-bank-1",
+  "category": "bank",
+  "name": "Test bank 1",
+  "x": 300,
+  "y": 800
+ },
+ {
+  "id": "test-bank-2",
+  "category": "bank",
+  "name": "Test bank 2",
+  "x": 1400,
+  "y": 850
+ },
+ {
+  "id": "test-bank-3",
+  "category": "bank",
+  "name": "Test bank 3",
+  "x": -7200,
+  "y": 4200
+ },
+ {
+  "id": "test-atm-1",
+  "category": "atm",
+  "name": "Test ATM",
+  "x": -540,
+  "y": 6600
+ }
+]

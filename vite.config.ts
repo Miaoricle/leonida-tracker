@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import fs from 'node:fs';
@@ -87,4 +88,5 @@ export default defineConfig({
     pages404(),
   ],
   build: { target: 'es2020', sourcemap: false },
+  test: { include: ['tests/unit/**/*.test.ts'] },
 });

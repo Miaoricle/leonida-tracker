@@ -1,0 +1,43 @@
+{
+ "groups": [
+  {
+   "id": "robberies",
+   "name": "Robberies",
+   "color": "#2e7d32"
+  },
+  {
+   "id": "collectibles",
+   "name": "Collectibles",
+   "color": "#ffd600"
+  },
+  {
+   "id": "local-places",
+   "name": "Local Places",
+   "color": "#ef6c00"
+  }
+ ],
+ "categories": [
+  {
+   "id": "bank",
+   "name": "Banks",
+   "group": "robberies",
+   "color": "#2e7d32",
+   "trackable": true
+  },
+  {
+   "id": "hidden-package",
+   "name": "Hidden Package",
+   "group": "collectibles",
+   "color": "#ffd600",
+   "trackable": true,
+   "slug": "hidden-packages"
+  },
+  {
+   "id": "atm",
+   "name": "ATMs",
+   "group": "local-places",
+   "color": "#ef6c00",
+   "trackable": false
+  }
+ ]
+}
