@@ -54,6 +54,22 @@ export class MarkerLayer {
     map.addLayer(this.cluster);
   }
 
+  private selected: string | null = null;
+
+  private iconOf(m: Marker, color = this.colors.get(m.category) ?? '#888') {
+    return pinIcon(m.category, color, this.stateOf(m), this.opts.size?.() ?? 30, m.id === this.selected);
+  }
+
+  /** Highlight the marker whose card is open (null clears). */
+  select(id: string | null): void {
+    const prev = this.selected;
+    this.selected = id;
+    for (const x of [prev, id]) {
+      const lm = x ? this.leaflet.get(x) : undefined;
+      if (lm) { lm.setIcon(this.iconOf(dataOf(lm))); lm.setZIndexOffset(x === id ? 1000 : 0); }
+    }
+  }
+
   private stateOf(m: Marker): PinState {
     if (this.opts.isFound?.(m.id)) return 'found';
     if (this.opts.isNew?.(m)) return 'new';
@@ -66,7 +82,7 @@ export class MarkerLayer {
     const color = this.colors.get(catId) ?? '#888';
     list = (this.byCat.get(catId) ?? []).map((m) => {
       const lm = L.marker(toLatLng(m.x, m.y), {
-        icon: pinIcon(catId, color, this.stateOf(m), this.opts.size?.() ?? 30),
+        icon: this.iconOf(m, color),
         title: m.name,
         alt: m.name,
         keyboard: true,
@@ -102,7 +118,7 @@ export class MarkerLayer {
     const lm = this.leaflet.get(id);
     if (!lm) return;
     const m = dataOf(lm);
-    lm.setIcon(pinIcon(m.category, this.colors.get(m.category) ?? '#888', this.stateOf(m), this.opts.size?.() ?? 30));
+    lm.setIcon(this.iconOf(m));
     if (this.hideFound && this.visible.has(m.category)) this.apply(this.visible, true);
   }
 
@@ -110,28 +126,39 @@ export class MarkerLayer {
   refreshAll(): void {
     for (const lm of this.leaflet.values()) {
       const m = dataOf(lm);
-      lm.setIcon(pinIcon(m.category, this.colors.get(m.category) ?? '#888', this.stateOf(m), this.opts.size?.() ?? 30));
+      lm.setIcon(this.iconOf(m));
     }
     this.apply(this.visible, this.hideFound);
   }
 
   markersOf(categoryId: string): Marker[] { return this.byCat.get(categoryId) ?? []; }
 
-  /** Fly to a marker, uncluster it and pulse it. Ensures its category is built. */
-  focus(m: Marker, zoom = 5): void {
+  /**
+   * Fly to a marker, uncluster it and pulse it. `bottomInset` (px) is the part of the screen covered by a bottom
+   * sheet: the marker is centred in the visible area above it. Pass zoom = null to keep the current zoom.
+   */
+  focus(m: Marker, zoom: number | null = 5, bottomInset = 0): void {
     this.build(m.category);
     const lm = this.leaflet.get(m.id);
     const ll = toLatLng(m.x, m.y);
+    const z = zoom === null ? this.map.getZoom() : Math.max(zoom, this.map.getZoom());
     const go = () => {
-      if (lm && this.shown.has(lm)) this.cluster.zoomToShowLayer(lm, () => pulse(lm));
+      if (lm && this.shown.has(lm) && this.cluster.getVisibleParent(lm) !== lm) this.cluster.zoomToShowLayer(lm, () => pulse(lm));
+      else if (lm && this.shown.has(lm)) pulse(lm);
       else this.pulseAt(ll);
     };
+    // centre of the visible area, in container px
+    const size = this.map.getSize();
+    const visible = L.bounds([0, 0], [size.x, Math.max(80, size.y - bottomInset)]);
+    const target = this.map.unproject(this.map.project(ll, z).add([0, bottomInset / 2]), z);
+    const pt = this.map.latLngToContainerPoint(ll);
+    // "in view" = clear of the sheet, the screen edges and the floating controls column on the right
+    const inView = this.map.getZoom() >= z && visible.contains(pt) && pt.y > 60 && pt.y < size.y - bottomInset - 40 && pt.x > 40 && pt.x < size.x - 80;
+    if (inView) { go(); return; }
     const anim = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (this.map.getZoom() < zoom || !this.map.getBounds().pad(-0.2).contains(ll)) {
-      this.map.once('moveend', go);
-      if (anim) this.map.flyTo(ll, Math.max(zoom, this.map.getZoom()), { duration: 0.8 });
-      else this.map.setView(ll, Math.max(zoom, this.map.getZoom()), { animate: false });
-    } else go();
+    this.map.once('moveend', go);
+    if (anim) this.map.flyTo(target, z, { duration: 0.8 });
+    else this.map.setView(target, z, { animate: false });
   }
 
   private pulseAt(ll: L.LatLng) {

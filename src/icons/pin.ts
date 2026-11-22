@@ -13,15 +13,15 @@ export type PinState = 'normal' | 'found' | 'new' | 'selected';
 const cache = new Map<string, L.DivIcon>();
 
 /** Round coloured pin with a white category glyph. Icons are shared per (category, state, size). */
-export function pinIcon(categoryId: string, color: string, state: PinState = 'normal', size = 30): L.DivIcon {
-  const key = `${categoryId}|${color}|${state}|${size}`;
+export function pinIcon(categoryId: string, color: string, state: PinState = 'normal', size = 30, selected = false): L.DivIcon {
+  const key = `${categoryId}|${color}|${state}|${size}|${selected}`;
   let icon = cache.get(key);
   if (!icon) {
     const g = Math.round(size * 0.6);
     const badge = state === 'found' ? `<span class="pin-badge pin-check">${glyphSvg('check', 12)}</span>`
       : state === 'new' ? '<span class="pin-badge pin-new">NEW</span>' : '';
     icon = L.divIcon({
-      className: `pin pin-s-${state}`,
+      className: `pin pin-s-${state}${selected ? ' pin-sel' : ''}`,
       html: `<span class="pin-dot" style="--c:${color};width:${size}px;height:${size}px">${glyphSvg(iconFor(categoryId), g)}</span>${badge}`,
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],

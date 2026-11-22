@@ -1,0 +1,52 @@
+// Dev-only Phase 4 walkthrough at iPhone size. Usage: node scripts/ui-shots4.mjs <outDir> (with `npm run dev` running)
+import { chromium, devices } from '@playwright/test';
+import fs from 'node:fs';
+const out = process.argv[2]; fs.mkdirSync(out, { recursive: true });
+const APP = 'http://localhost:5173/leonida-tracker/';
+const b = await chromium.launch();
+const ctx = await b.newContext({ ...devices['iPhone 13'], permissions: ['clipboard-read', 'clipboard-write'] });
+const p = await ctx.newPage();
+const errors = [];
+p.on('pageerror', (e) => errors.push(e.message));
+p.on('console', (m) => m.type() === 'error' && !/Failed to load resource/.test(m.text()) && errors.push(m.text()));
+const ready = () => p.waitForFunction(() => window.__leonida, null, { timeout: 60000 });
+const shot = async (n, wait = 900) => { await p.waitForTimeout(wait); await p.screenshot({ path: `${out}/${n}.png` }); console.log('shot', n); };
+
+await p.goto(APP + '?feature=hidden-packages', { waitUntil: 'domcontentloaded' }); await ready();
+await p.waitForTimeout(800);
+// tap a visible Hidden Package pin (zoom in until one is unclustered)
+await p.evaluate(() => window.__leonida.map.setZoom(5));
+await p.waitForTimeout(800);
+let pin = p.locator('.leaflet-marker-icon.pin').first();
+if (!(await pin.count())) { await p.evaluate(() => { const { map, data, toLatLng } = window.__leonida; const m = data.markers.find(x => x.category === 'hidden-package' && x.id === 'hidden-package-010'); map.setView(toLatLng(m.x, m.y), 5, { animate: false }); }); await p.waitForTimeout(800); pin = p.locator('.leaflet-marker-icon.pin').first(); }
+await pin.click();
+await shot('1-card-half', 1600);
+const id = await p.evaluate(() => window.__leonida.card.marker.id);
+console.log('opened', id, 'url', new URL(p.url()).search);
+await p.locator('.found-btn').click();
+await shot('2-card-found', 500);
+await p.locator('.fav').click();
+await p.locator('.note').fill('Check the rooftop');
+await p.waitForTimeout(600);
+await p.reload({ waitUntil: 'domcontentloaded' }); await ready(); await p.waitForTimeout(1200);
+const after = await p.evaluate((id) => ({ url: location.search, open: window.__leonida.card.marker?.id, found: window.__leonida.progress.isFound(id), fav: window.__leonida.progress.isFavourite(id), note: window.__leonida.progress.note(id), btn: document.querySelector('.found-btn')?.getAttribute('aria-pressed') }), id);
+console.log('after reload (?m= link):', after);
+await shot('3-after-reload-deeplink');
+await p.locator('.card-sheet .sheet-grab').dragTo(p.locator('body'), { targetPosition: { x: 195, y: 40 } });
+await shot('4-card-full');
+await p.keyboard.press('Escape');
+await p.goto(APP + '?at=-2354,-5532,5', { waitUntil: 'domcontentloaded' }); await ready();
+await shot('5-shared-spot', 1500);
+await p.getByRole('button', { name: 'Menu' }).click();
+await shot('6-menu', 600);
+await p.locator('[data-go="stats"]').click();
+await shot('7-stats');
+await p.keyboard.press('Escape');
+await p.getByRole('button', { name: 'Menu' }).click(); await p.waitForTimeout(400);
+await p.locator('[data-go="profiles"]').click();
+await shot('8-profiles', 600);
+await p.getByRole('button', { name: 'Menu' }).click({ force: true }).catch(() => {});
+await p.evaluate(() => document.querySelector('[data-go="reset"]').click());
+await shot('9-reset-picker', 500);
+console.log('errors:', errors.length ? errors : 'none');
+await b.close();
