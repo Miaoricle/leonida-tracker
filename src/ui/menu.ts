@@ -14,6 +14,8 @@ export interface MenuDeps {
   markersOf: (catId: string) => Marker[];
   counts: () => { perCat: Map<string, Counts>; perGroup: Map<string, Counts> };
   onOpenMarker: (m: Marker) => void;
+  onMyMap?: () => void;
+  onSettings?: () => void;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -52,9 +54,11 @@ export class Menu {
     const p = this.d.progress.profile;
     this.sheet.body.innerHTML = `
       <ul class="menu">
+        <li><button data-go="mymap">${glyphSvg('bookmark', 22)}<span>My Map<small>Personal markers, favourites, notes</small></span></button></li>
         <li><button data-go="stats">${glyphSvg('bar_chart', 22)}<span>Stats</span></button></li>
         <li><button data-go="profiles">${glyphSvg('person', 22)}<span>Profiles<small>${esc(p.name)}</small></span></button></li>
         <li><button data-go="reset">${glyphSvg('restart_alt', 22)}<span>Reset progress</span></button></li>
+        <li><button data-go="settings">${glyphSvg('settings', 22)}<span>Settings<small>Data source, backup, tools</small></span></button></li>
         <li><button data-go="about">${glyphSvg('info', 22)}<span>About &amp; credits</span></button></li>
       </ul>`;
     this.sheet.body.querySelector('.menu')!.addEventListener('click', (e) => {
@@ -63,6 +67,8 @@ export class Menu {
       if (go === 'profiles') { this.sheet.close(); this.renderProfiles(); this.profiles.open('half'); }
       if (go === 'reset') void this.reset();
       if (go === 'about') { this.sheet.close(); this.about.open('half'); }
+      if (go === 'mymap') { this.sheet.close(); this.d.onMyMap?.(); }
+      if (go === 'settings') { this.sheet.close(); this.d.onSettings?.(); }
     });
   }
 

@@ -1,10 +1,15 @@
 import type { Dataset, Group, Category, Marker, Label, Meta } from './types';
+import { readCache } from './store';
 
 /**
- * Phase 2: dev-only loader that reads the git-ignored ./dev-data copy served by the Vite dev server.
- * Phase 5 adds the real sources (GitHub API with token + IndexedDB cache, and file import).
+ * Map data, in order of preference:
+ *  1. the IndexedDB cache (filled from the private GitHub repo with your token, or from an imported file)
+ *  2. in `vite dev` only: the git-ignored ./dev-data copy
+ * Returns null when there's no data yet (first run → onboarding).
  */
 export async function loadDataset(): Promise<Dataset | null> {
+  const cached = await readCache();
+  if (cached) return cached;
   if (!import.meta.env.DEV) return null;
   const base = `${import.meta.env.BASE_URL}dev-data/`;
   const get = async <T>(f: string): Promise<T | null> => {

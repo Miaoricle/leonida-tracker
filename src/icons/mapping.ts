@@ -100,6 +100,8 @@ export const CATEGORY_ICONS: Record<string, string> = {
   marina: 'sailing',
   nightclub: 'nightlife',
   'police-station': 'local_police',
+  // Personal markers with a custom category
+  custom: 'keep',
 };
 
 /** Glyph for a category id; card-* categories share the card glyph. */

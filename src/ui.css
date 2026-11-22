@@ -31,7 +31,7 @@ html[data-sheet="full"] .controls { visibility: hidden; }
 /* ---------- bottom sheet / sidebar ---------- */
 .sheet {
   position: fixed; z-index: 900; left: 0; right: 0; bottom: 0; height: var(--sheet-h, 90vh);
-  display: flex; flex-direction: column; background: var(--panel); color: var(--fg);
+  display: flex; flex-direction: column; background: var(--panel-solid); color: var(--fg);
   border-radius: 18px 18px 0 0; box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform;

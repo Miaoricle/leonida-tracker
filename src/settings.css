@@ -1,0 +1,45 @@
+/* ---------- settings ---------- */
+.settings section { padding-bottom: 8px; }
+.settings .sec-h:first-child { margin-top: 4px; }
+.status-line { display: grid; gap: 4px; margin: 0 0 12px; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); }
+.status-line small { color: var(--muted); font-size: 12px; }
+.settings .field { margin-bottom: 10px; }
+.settings .field em { font-style: normal; color: #7fd49b; }
+.small { font-size: 13px; }
+.muted code { font-size: 12px; background: rgba(255, 255, 255, 0.08); padding: 1px 5px; border-radius: 5px; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 4px; }
+.btn-row .pill { flex: 1 1 auto; }
+.file-pill, .photo-pick { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.pill:disabled { opacity: 0.4; cursor: default; }
+.link-btn { border: 0; background: none; color: #8cc8ff; padding: 10px 0; min-height: 44px; font-size: 14px; cursor: pointer; text-decoration: underline; }
+.removed { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.removed li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.05); }
+.removed span { display: grid; min-width: 0; }
+.removed small { color: var(--muted); font-size: 12px; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; cursor: pointer; }
+.switch-row > span { display: grid; }
+.switch-row small { color: var(--muted); font-size: 12px; }
+.switch { appearance: none; -webkit-appearance: none; width: 52px; height: 32px; border-radius: 16px; background: rgba(255, 255, 255, 0.2); position: relative; flex: none; cursor: pointer; transition: background 0.2s; }
+.switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; transition: transform 0.2s; }
+.switch:checked { background: #2e9d57; }
+.switch:checked::after { transform: translateX(20px); }
+#status .link-btn { padding: 0 0 0 6px; min-height: 0; }
+
+/* ---------- my map tabs ---------- */
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: rgba(255, 255, 255, 0.06); margin-bottom: 12px; }
+.tabs [role=tab] { min-height: 40px; border: 0; border-radius: 10px; background: none; font-weight: 600; font-size: 14px; cursor: pointer; }
+.tabs [aria-selected=true] { background: rgba(255, 255, 255, 0.16); }
+.tab-n { color: var(--muted); font-weight: 400; }
+
+/* ---------- personal markers ---------- */
+.pin-user .pin-dot { border-style: dashed; border-color: #fff; outline: 2px solid rgba(233, 30, 99, 0.9); outline-offset: 1px; }
+.chip.mine { background: rgba(233, 30, 99, 0.25); padding-left: 10px; }
+.drag-hint { margin: -6px 0 0; font-size: 12px; }
+.photo-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.photo-prev { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; }
+.pform { max-height: calc(100vh - 32px); overflow-y: auto; }
+.pform [hidden] { display: none !important; }
+
+/* ---------- coordinate picker ---------- */
+#map.picking .leaflet-container, #map.picking { cursor: crosshair; }
+.spot-xy.big { font-size: 16px; color: var(--fg); font-weight: 700; }

@@ -13,6 +13,10 @@ export interface CardDeps {
   onNavigate: (m: Marker) => void; // prev / next
   onZoom: (m: Marker) => void;
   onClose: () => void;
+  /** personal markers: photo URL, edit and delete */
+  photoUrl?: (m: Marker) => string | undefined;
+  onEdit?: (m: Marker) => void;
+  onDelete?: (m: Marker) => void;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -36,6 +40,7 @@ export class MarkerCard {
 
   open(m: Marker) {
     if (this.marker && this.marker.id !== m.id) this.flushNote();
+    if (this.marker && this.marker.id !== m.id) this.d.onClose();
     this.marker = m;
     this.render();
     this.sheet.open(this.sheet.snap === 'full' ? 'full' : 'half');
@@ -54,16 +59,18 @@ export class MarkerCard {
     const c = this.d.category(m.category);
     const sibs = this.d.siblings(m);
     const n = sibs.findIndex((x) => x.id === m.id) + 1;
-    const img = m.imageSmall || m.image;
+    const user = m.source === 'user';
+    const img = user ? this.d.photoUrl?.(m) : m.imageSmall || m.image;
+    const catName = user ? (String(m.customCategory ?? '') || c?.name || 'My marker') : c?.name ?? m.category;
     this.sheet.titleEl.textContent = m.name;
     this.sheet.el.setAttribute('aria-label', m.name);
     this.sheet.body.innerHTML = `
-      <div class="card" style="--c:${c?.color ?? '#888'}">
+      <div class="card" style="--c:${c?.color ?? (m.source === 'user' ? '#e91e63' : '#888')}">
         <div class="card-meta">
-          <span class="chip"><span class="chip-ico">${glyphSvg(iconFor(m.category), 14)}</span>${esc(c?.name ?? m.category)}</span>
+          <span class="chip"><span class="chip-ico">${glyphSvg(iconFor(m.category), 14)}</span>${esc(catName)}</span>${user ? '<span class="chip mine">My marker</span>' : ''}
           ${sibs.length > 1 ? `<span class="card-n">#${n} of ${sibs.length}</span>` : ''}
         </div>
-        ${c?.trackable !== false ? `<button class="found-btn" aria-pressed="false"><span class="found-ico">${glyphSvg('check', 24)}</span><span class="found-label">Mark as found</span></button>` : '<p class="countonly">Count-only category (not tracked)</p>'}
+        ${user || c?.trackable !== false ? `<button class="found-btn" aria-pressed="false"><span class="found-ico">${glyphSvg('check', 24)}</span><span class="found-label">Mark as found</span></button>` : '<p class="countonly">Count-only category (not tracked)</p>'}
         <div class="card-actions">
           <button class="act fav" aria-pressed="false" aria-label="Favourite">${glyphSvg('star', 22)}<span>Favourite</span></button>
           <button class="act share" aria-label="Share link">${glyphSvg('share', 22)}<span>Share</span></button>
@@ -72,11 +79,13 @@ export class MarkerCard {
         ${img ? `<button class="card-img" aria-label="View image full screen"><img loading="lazy" decoding="async" alt="" src="${esc(img)}"></button>` : ''}
         ${m.description ? `<p class="card-desc">${esc(m.description)}</p>` : ''}
         <label class="field note-field"><span>My note</span><textarea class="note" rows="2" placeholder="Private note (only on this device)"></textarea></label>
-        <div class="card-nav">
+        ${user ? `<div class="card-nav"><button class="pill p-edit">${glyphSvg('edit', 18)} Edit</button><button class="pill p-del">${glyphSvg('delete', 18)} Delete</button></div>
+        <p class="muted drag-hint">Drag the pin to move it while this card is open.</p>` : ''}
+        <div class="card-nav" ${user ? 'hidden' : ''}>
           <button class="pill nav-prev" ${sibs.length < 2 ? 'disabled' : ''}>${glyphSvg('chevron_left', 20)} Previous</button>
           <button class="pill nav-next" ${sibs.length < 2 ? 'disabled' : ''}>Next ${glyphSvg('chevron_right', 20)}</button>
         </div>
-        <p class="card-credit">${[m.shot_by ? `Screenshot: ${esc(String(m.shot_by))}` : '', m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">More on GTABase</a>` : ''].filter(Boolean).join(' · ') || 'Location data: GTABase'}</p>
+        ${user ? '' : `<p class="card-credit">${[m.shot_by ? `Screenshot: ${esc(String(m.shot_by))}` : '', m.url ? `<a href="${esc(m.url)}" target="_blank" rel="noopener">More on GTABase</a>` : ''].filter(Boolean).join(' · ') || 'Location data: GTABase'}</p>`}
       </div>`;
     const im = this.sheet.body.querySelector<HTMLImageElement>('.card-img img');
     if (im) im.onerror = () => im.closest('.card-img')?.remove(); // hide quietly if it fails (e.g. offline, not cached)
@@ -111,11 +120,16 @@ export class MarkerCard {
     } else if (t.closest('.fav')) {
       void this.d.progress.setFavourite(m.id, !this.d.progress.isFavourite(m.id));
     } else if (t.closest('.share')) {
-      void shareLink(appUrl({ m: m.id }), m.name);
+      // personal markers only exist on this device: share the spot instead
+      void shareLink(m.source === 'user' ? appUrl({ at: `${Math.round(m.x)},${Math.round(m.y)},6` }) : appUrl({ m: m.id }), m.name);
     } else if (t.closest('.zoom')) {
       this.d.onZoom(m);
     } else if (t.closest('.card-img')) {
-      openViewer(m.image || m.imageSmall!, m.name);
+      openViewer(m.source === 'user' ? this.d.photoUrl!(m)! : m.image || m.imageSmall!, m.name);
+    } else if (t.closest('.p-edit')) {
+      this.d.onEdit?.(m);
+    } else if (t.closest('.p-del')) {
+      this.d.onDelete?.(m);
     } else if (t.closest('.nav-prev') || t.closest('.nav-next')) {
       const sibs = this.d.siblings(m);
       const i = sibs.findIndex((x) => x.id === m.id);

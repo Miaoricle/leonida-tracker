@@ -1,0 +1,192 @@
+import { db, getSetting, setSetting } from '../db';
+import type { Dataset } from '../data/types';
+import { DEFAULT_REPO, testConnection, type RepoConfig } from '../data/github';
+import { checkForUpdates, describeUpdate, repoConfig, type RemovedInfo, type UpdateResult } from '../data/store';
+import { importDataFiles } from '../data/importfile';
+import { exportBackup, importBackup, markBackedUp, parseBackup, saveJsonFile } from '../backup';
+import type { ProgressStore } from '../state/progress';
+import { Sheet } from './sheet';
+import { dialog } from './dialog';
+import { toast } from './toast';
+
+export interface SettingsDeps {
+  data: () => Dataset | null;
+  progress: ProgressStore | null;
+  onDataChanged: (r: UpdateResult) => void;
+  onBackupImported: () => void;
+  coordPicker: { get: () => boolean; set: (on: boolean) => void };
+}
+
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+const day = (iso?: string) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'never');
+const dayTime = (iso?: string) => (iso ? new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'never');
+
+export class SettingsView {
+  readonly sheet: Sheet;
+  private busy = false;
+
+  constructor(private d: SettingsDeps) {
+    this.sheet = new Sheet({ id: 'settings', title: 'Settings' });
+    this.sheet.body.addEventListener('click', (e) => void this.onClick(e));
+    this.sheet.body.addEventListener('change', (e) => void this.onChange(e));
+  }
+
+  async open(section?: 'data' | 'backup') {
+    await this.render();
+    this.sheet.open('full');
+    if (section) this.sheet.body.querySelector(`#set-${section}`)?.scrollIntoView({ block: 'start' });
+  }
+
+  async render() {
+    const ds = this.d.data();
+    const token = await getSetting<string>('gh.token', '');
+    const repo = { ...DEFAULT_REPO, ...(await getSetting('gh.repo', DEFAULT_REPO)) };
+    const [lastSync, lastCheck, source, lastBackup] = await Promise.all([
+      getSetting<string>('data.lastSync', ''), getSetting<string>('data.lastCheck', ''), getSetting<string>('data.source', ''), getSetting<string>('backup.lastAt', ''),
+    ]);
+    const removed = await this.removedRows();
+    const synced = ds?.meta?.syncedAt;
+    this.sheet.body.innerHTML = `
+      <div class="settings">
+        <section id="set-data">
+          <h3 class="sec-h">Data source</h3>
+          <p class="status-line">${ds ? `<b>Synced ${day(synced)}, ${ds.markers.length.toLocaleString()} locations</b>` : '<b>No map data yet</b>'}
+            <small>${ds ? `${source === 'import' ? 'From an imported file' : source === 'github' ? 'From your private repo' : 'Local dev copy'} · fetched ${dayTime(lastSync)} · last check ${dayTime(lastCheck)}` : 'Add your token below, or import the data file.'}</small></p>
+          <label class="field"><span>Private data repo</span><input class="repo" value="${esc(`${repo.owner}/${repo.repo}`)}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+          <label class="field"><span>GitHub token ${token ? `<em>(saved, ends …${esc(token.slice(-4))})</em>` : ''}</span>
+            <input class="token" type="password" placeholder="${token ? 'Paste a new token to replace it' : 'github_pat_…'}" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+          <p class="muted small">Fine-grained token, <b>Contents: Read-only</b> on leonida-data only. Stored on this device and sent only to api.github.com. On iPhone, enter it inside the home-screen app (it has its own storage).</p>
+          <div class="btn-row">
+            <button class="pill primary" data-a="test">Save &amp; test connection</button>
+            <button class="pill" data-a="check" ${token ? '' : 'disabled'}>Check for updates</button>
+          </div>
+          ${token ? '<button class="link-btn" data-a="forget-token">Remove token from this device</button>' : ''}
+          <h3 class="sec-h">Import data file</h3>
+          <p class="muted small">No token? Pick <code>markers.json</code> and <code>categories.json</code> (plus <code>labels.json</code>, <code>meta.json</code>) from the Files app.</p>
+          <label class="pill file-pill">Choose files…<input type="file" class="data-file" accept=".json,application/json" multiple hidden></label>
+        </section>
+
+        <section id="set-backup">
+          <h3 class="sec-h">Backup</h3>
+          <p class="muted small">Your progress, notes, favourites, personal markers and profiles. Last backup: <b>${day(lastBackup)}</b>.
+            Keep a copy in iCloud Drive / Files. Deleting the home-screen app deletes its data.</p>
+          <div class="btn-row">
+            <button class="pill primary" data-a="export">Export backup</button>
+            <label class="pill file-pill">Import backup<input type="file" class="backup-file" accept=".json,application/json" hidden></label>
+          </div>
+        </section>
+
+        <section id="set-removed">
+          <h3 class="sec-h">Removed markers</h3>
+          ${removed.length ? `<p class="muted small">Markers you ticked that a later sync removed. Their progress is kept.</p>
+          <ul class="removed">${removed.map((r) => `<li><span><b>${esc(r.name)}</b><small>${esc(r.category)}${r.removedAt ? ` · removed ${day(r.removedAt)}` : ''}</small></span>
+            <button class="link-btn" data-forget="${esc(r.id)}">Forget</button></li>`).join('')}</ul>` : '<p class="muted small">None. Every marker you\'ve ticked is still in the data.</p>'}
+        </section>
+
+        <section id="set-tools">
+          <h3 class="sec-h">Tools</h3>
+          <label class="switch-row"><span>Coordinate picker<small>Tap the map to show and copy game x, y</small></span>
+            <input type="checkbox" class="switch coord" ${this.d.coordPicker.get() ? 'checked' : ''}></label>
+        </section>
+      </div>`;
+  }
+
+  private async removedRows() {
+    const ds = this.d.data();
+    const p = this.d.progress;
+    if (!ds || !p) return [];
+    const ids = new Set(ds.markers.map((m) => m.id));
+    const snap = await getSetting<Record<string, RemovedInfo>>('data.removed', {});
+    const personal = new Set((await db.personal.toArray()).map((m) => m.id));
+    return [...p.found].filter((id) => !ids.has(id) && !personal.has(id))
+      .map((id) => ({ id, name: snap[id]?.name ?? id, category: snap[id]?.category ?? 'unknown category', removedAt: snap[id]?.removedAt }));
+  }
+
+  private readRepo(): Omit<RepoConfig, 'token'> | null {
+    const v = this.sheet.body.querySelector<HTMLInputElement>('.repo')!.value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '');
+    const [owner, repo] = v.split('/');
+    if (!owner || !repo) { toast('Repo should look like owner/name'); return null; }
+    return { owner, repo, branch: 'main' };
+  }
+
+  private async run(label: string, fn: () => Promise<void>) {
+    if (this.busy) return;
+    this.busy = true;
+    const btns = this.sheet.body.querySelectorAll<HTMLButtonElement>('button');
+    btns.forEach((b) => (b.disabled = true));
+    toast(label);
+    try { await fn(); } catch (e) { toast((e as Error).message || 'Something went wrong', { ms: 5000 }); }
+    finally { this.busy = false; await this.render(); }
+  }
+
+  private async onClick(e: Event) {
+    const t = e.target as HTMLElement;
+    const a = t.closest<HTMLElement>('[data-a]')?.dataset.a;
+    const forget = t.closest<HTMLElement>('[data-forget]')?.dataset.forget;
+    if (a === 'test') {
+      const repo = this.readRepo();
+      if (!repo) return;
+      const typed = this.sheet.body.querySelector<HTMLInputElement>('.token')!.value.trim();
+      const token = typed || (await getSetting<string>('gh.token', ''));
+      if (!token) { toast('Paste your token first'); return; }
+      await this.run('Testing connection…', async () => {
+        const info = await testConnection({ ...repo, token });
+        await setSetting('gh.repo', repo);
+        await setSetting('gh.token', token);
+        toast(`Connected to ${info.fullName}${info.private ? ' (private ✓)' : ' (warning: repo is public!)'}`, { ms: 4000 });
+        if (!this.d.data() || !(await db.dataCache.get('markers'))) {
+          const r = await checkForUpdates({ ...repo, token });
+          this.d.onDataChanged(r);
+        }
+      });
+    } else if (a === 'check') {
+      const c = await repoConfig();
+      if (!c) return;
+      await this.run('Checking for updates…', async () => {
+        const r = await checkForUpdates(c);
+        toast(describeUpdate(r));
+        if (r.status !== 'unchanged') this.d.onDataChanged(r);
+      });
+    } else if (a === 'forget-token') {
+      const ok = await dialog({ title: 'Remove token?', message: 'The map data already downloaded stays on this device. You can paste the token again later.', confirm: 'Remove', danger: true });
+      if (ok) { await setSetting('gh.token', ''); await this.render(); toast('Token removed'); }
+    } else if (a === 'export') {
+      await this.run('Preparing backup…', async () => {
+        const b = await exportBackup();
+        const stamp = new Date().toISOString().slice(0, 10);
+        try { await saveJsonFile(`leonida-backup-${stamp}.json`, b); } catch (err) { if ((err as Error).name === 'AbortError') return; throw err; }
+        await markBackedUp();
+        toast('Backup saved');
+      });
+    } else if (forget) {
+      const ok = await dialog({ title: 'Forget this marker?', message: 'Its found state will be deleted. There is no undo.', confirm: 'Forget', danger: true });
+      if (ok && this.d.progress) { await this.d.progress.setFound(forget, false); await this.render(); }
+    }
+  }
+
+  private async onChange(e: Event) {
+    const t = e.target as HTMLInputElement;
+    if (t.classList.contains('coord')) { this.d.coordPicker.set(t.checked); return; }
+    const files = t.files;
+    if (!files?.length) return;
+    if (t.classList.contains('data-file')) {
+      await this.run('Importing map data…', async () => {
+        const r = await importDataFiles(files);
+        toast(`${describeUpdate(r)}${r.skipped ? ` (${r.skipped} invalid skipped)` : ''}`, { ms: 4000 });
+        this.d.onDataChanged(r);
+      });
+    } else if (t.classList.contains('backup-file')) {
+      await this.run('Reading backup…', async () => {
+        let raw: unknown;
+        try { raw = JSON.parse(await files[0].text()); } catch { throw new Error('That file isn\'t valid JSON'); }
+        const b = parseBackup(raw);
+        const ok = await dialog({ title: 'Import backup?', message: `From ${day(b.exportedAt)}: ${b.profiles.length} profile(s), ${b.progress.length} found, ${b.notes.length} notes, ${b.favourites.length} favourites, ${b.personal.length} personal markers. It's merged into this device: nothing here is deleted, newer entries win.`, confirm: 'Import' });
+        if (!ok) return;
+        const r = await importBackup(b);
+        toast(`Imported: ${r.found} found, ${r.notes} notes, ${r.favourites} favourites, ${r.personal} markers${r.profiles ? `, ${r.profiles} profiles` : ''}`, { ms: 5000 });
+        this.d.onBackupImported();
+      });
+    }
+    t.value = '';
+  }
+}

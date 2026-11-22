@@ -15,7 +15,7 @@ export async function shareLink(url: string, title: string, preferCopy = false):
   await copyText(url);
 }
 
-export async function copyText(text: string): Promise<void> {
+export async function copyText(text: string, done = 'Link copied'): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
   } catch {
@@ -25,5 +25,5 @@ export async function copyText(text: string): Promise<void> {
     try { document.execCommand('copy'); } catch { /* ignore */ }
     ta.remove();
   }
-  toast('Link copied');
+  toast(done);
 }

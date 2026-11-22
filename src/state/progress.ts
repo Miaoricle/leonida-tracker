@@ -132,7 +132,7 @@ export class ProgressStore {
 
   async createProfile(name: string): Promise<Profile> {
     if (this.profiles.length >= MAX_PROFILES) throw new Error(`Up to ${MAX_PROFILES} profiles`);
-    const p: Profile = { id: `p-${Date.now().toString(36)}`, name: name.trim() || `Playthrough ${this.profiles.length + 1}`, createdAt: new Date().toISOString() };
+    const p: Profile = { id: `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, name: name.trim() || `Playthrough ${this.profiles.length + 1}`, createdAt: new Date().toISOString() };
     await db.profiles.put(p);
     this.profiles.push(p);
     return p;
