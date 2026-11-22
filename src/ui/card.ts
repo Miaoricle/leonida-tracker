@@ -5,6 +5,7 @@ import { iconFor } from '../icons/mapping';
 import { Sheet } from './sheet';
 import { openViewer } from './viewer';
 import { appUrl, shareLink } from './share';
+import { shotUrl } from '../data/images';
 
 export interface CardDeps {
   progress: ProgressStore;
@@ -60,7 +61,8 @@ export class MarkerCard {
     const sibs = this.d.siblings(m);
     const n = sibs.findIndex((x) => x.id === m.id) + 1;
     const user = m.source === 'user';
-    const img = user ? this.d.photoUrl?.(m) : m.imageSmall || m.image;
+    const img = user ? this.d.photoUrl?.(m) : undefined;
+    const shot = !user && (m.imageSmall || m.image);
     const catName = user ? (String(m.customCategory ?? '') || c?.name || 'My marker') : c?.name ?? m.category;
     this.sheet.titleEl.textContent = m.name;
     this.sheet.el.setAttribute('aria-label', m.name);
@@ -76,7 +78,8 @@ export class MarkerCard {
           <button class="act share" aria-label="Share link">${glyphSvg('share', 22)}<span>Share</span></button>
           <button class="act zoom" aria-label="Zoom in">${glyphSvg('zoom_in', 22)}<span>Zoom</span></button>
         </div>
-        ${img ? `<button class="card-img" aria-label="View image full screen"><img loading="lazy" decoding="async" alt="" src="${esc(img)}"></button>` : ''}
+        ${img ? `<button class="card-img" aria-label="View image full screen"><img decoding="async" alt="" src="${esc(img)}"></button>` : ''}
+        ${shot ? '<button class="card-img loading" aria-label="View screenshot full screen"><img decoding="async" alt=""></button>' : ''}
         ${m.description ? `<p class="card-desc">${esc(m.description)}</p>` : ''}
         <label class="field note-field"><span>My note</span><textarea class="note" rows="2" placeholder="Private note (only on this device)"></textarea></label>
         ${user ? `<div class="card-nav"><button class="pill p-edit">${glyphSvg('edit', 18)} Edit</button><button class="pill p-del">${glyphSvg('delete', 18)} Delete</button></div>
@@ -89,6 +92,13 @@ export class MarkerCard {
       </div>`;
     const im = this.sheet.body.querySelector<HTMLImageElement>('.card-img img');
     if (im) im.onerror = () => im.closest('.card-img')?.remove(); // hide quietly if it fails (e.g. offline, not cached)
+    if (shot && im) {
+      const forId = m.id;
+      void shotUrl(m.imageSmall || m.image).then((u) => {
+        if (this.marker?.id !== forId) return;
+        if (u) { im.src = u; im.closest('.card-img')?.classList.remove('loading'); } else im.closest('.card-img')?.remove();
+      });
+    }
     this.sheet.body.querySelector<HTMLTextAreaElement>('.note')!.value = this.d.progress.note(m.id);
     this.sheet.body.scrollTop = 0;
     this.syncState();
@@ -125,7 +135,8 @@ export class MarkerCard {
     } else if (t.closest('.zoom')) {
       this.d.onZoom(m);
     } else if (t.closest('.card-img')) {
-      openViewer(m.source === 'user' ? this.d.photoUrl!(m)! : m.image || m.imageSmall!, m.name);
+      if (m.source === 'user') openViewer(this.d.photoUrl!(m)!, m.name);
+      else void shotUrl(m.image || m.imageSmall).then((u) => u && openViewer(u, m.name));
     } else if (t.closest('.p-edit')) {
       this.d.onEdit?.(m);
     } else if (t.closest('.p-del')) {

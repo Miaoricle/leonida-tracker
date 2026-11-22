@@ -6,7 +6,7 @@ import { validateDataset } from './validate';
 import { DATA_FILES, fetchFile, DEFAULT_REPO, type DataFile, type RepoConfig } from './github';
 
 export interface RemovedInfo { name: string; category: string; removedAt: string }
-export interface UpdateResult { status: 'unchanged' | 'updated' | 'first'; added: number; removed: number; renamed: number; total: number }
+export interface UpdateResult { status: 'unchanged' | 'updated' | 'first'; added: number; removed: number; renamed: number; total: number; imagesUpdated?: boolean }
 
 export async function readCache(): Promise<Dataset | null> {
   try {
@@ -77,11 +77,16 @@ export async function checkForUpdates(c: RepoConfig): Promise<UpdateResult> {
   const hasData = !!(await db.dataCache.get('markers'));
   await setSetting('data.lastCheck', new Date().toISOString());
   const meta = await fetchFile(c, 'meta', hasData ? await etag('meta') : undefined);
-  if (!meta && hasData) return { status: 'unchanged', added: 0, removed: 0, renamed: 0, total: (await readCache())?.markers.length ?? 0 };
+  if (!meta && hasData) {
+    // markers unchanged; screenshots are synced separately, so check the image manifest too (cheap 304)
+    const imgs = await fetchFile(c, 'images', await etag('images')).catch(() => null);
+    if (imgs) await db.dataCache.put({ key: 'images', json: imgs.json, etag: imgs.etag, fetchedAt: new Date().toISOString() });
+    return { status: 'unchanged', added: 0, removed: 0, renamed: 0, total: (await readCache())?.markers.length ?? 0, imagesUpdated: !!imgs };
+  }
   const files: Partial<Record<DataFile, unknown>> = {};
   const etags: Partial<Record<DataFile, string>> = {};
   if (meta) { files.meta = meta.json; etags.meta = meta.etag; }
-  for (const f of ['markers', 'categories', 'labels'] as const) {
+  for (const f of ['markers', 'categories', 'labels', 'images'] as const) {
     const r = await fetchFile(c, f, hasData ? await etag(f) : undefined);
     if (r) { files[f] = r.json; etags[f] = r.etag; }
   }

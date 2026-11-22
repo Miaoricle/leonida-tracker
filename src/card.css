@@ -27,6 +27,9 @@
 .act.fav.on { color: #ffd54f; }
 .card-img { display: block; padding: 0; border: 0; border-radius: 14px; overflow: hidden; background: rgba(var(--ov), 0.05); cursor: zoom-in; aspect-ratio: 16 / 9; }
 .card-img img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.card-img.loading { background: linear-gradient(90deg, rgba(var(--ov), 0.04), rgba(var(--ov), 0.12), rgba(var(--ov), 0.04)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+.card-img.loading img { visibility: hidden; }
+@keyframes shimmer { to { background-position: -200% 0; } }
 .card-desc { margin: 0; line-height: 1.5; font-size: 15px; white-space: pre-line; }
 .field { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .field textarea, .field input, .field select {

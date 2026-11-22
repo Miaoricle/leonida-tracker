@@ -4,7 +4,9 @@ const API = 'https://api.github.com';
 
 export interface RepoConfig { owner: string; repo: string; branch: string; token: string }
 export const DEFAULT_REPO = { owner: 'Miaoricle', repo: 'leonida-data', branch: 'main' };
-export const DATA_FILES = ['meta', 'markers', 'categories', 'labels'] as const;
+export const DATA_FILES = ['meta', 'markers', 'categories', 'labels', 'images'] as const;
+/** Files that may not exist in the repo (404 is fine). */
+export const OPTIONAL_FILES: readonly DataFile[] = ['labels', 'images'];
 export type DataFile = (typeof DATA_FILES)[number];
 
 export class GitHubError extends Error {
@@ -41,6 +43,15 @@ export async function fetchFile(c: RepoConfig, file: DataFile, etag?: string): P
   const url = `${API}/repos/${encodeURIComponent(c.owner)}/${encodeURIComponent(c.repo)}/contents/data/${file}.json?ref=${encodeURIComponent(c.branch)}`;
   const r = await fetch(url, { headers: headers(c.token, etag), cache: 'no-store' });
   if (r.status === 304) return null;
+  if (r.status === 404 && OPTIONAL_FILES.includes(file)) return { json: file === 'images' ? {} : [], etag: undefined };
   if (!r.ok) throw new GitHubError(explain(r.status), r.status);
   return { json: await r.json(), etag: r.headers.get('ETag') ?? undefined };
+}
+
+/** Fetch a binary file (a marker screenshot) from the private repo. */
+export async function fetchBlob(c: RepoConfig, repoPath: string): Promise<Blob> {
+  const url = `${API}/repos/${encodeURIComponent(c.owner)}/${encodeURIComponent(c.repo)}/contents/${repoPath.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(c.branch)}`;
+  const r = await fetch(url, { headers: headers(c.token) });
+  if (!r.ok) throw new GitHubError(explain(r.status), r.status);
+  return r.blob();
 }

@@ -8,6 +8,7 @@ import type { ProgressStore } from '../state/progress';
 import type { PrefStore } from '../state/prefs';
 import { OfflineDownloader, estimate, mb, storageUsage, tileIndex, cachedTileCount } from '../offline';
 import { wakeLockSupported } from '../wakelock';
+import { thumbnailSources, prefetchShots } from '../data/images';
 import { Sheet } from './sheet';
 import { dialog } from './dialog';
 import { toast } from './toast';
@@ -30,6 +31,7 @@ const dayTime = (iso?: string) => (iso ? new Date(iso).toLocaleString(undefined,
 export class SettingsView {
   readonly sheet: Sheet;
   private busy = false;
+  private shotStop: { stop: boolean } | null = null;
 
   constructor(private d: SettingsDeps) {
     this.sheet = new Sheet({ id: 'settings', title: 'Settings' });
@@ -73,6 +75,7 @@ export class SettingsView {
           <div class="dl-progress" ${dl && dl.total ? '' : 'hidden'}><span class="bar"><i></i></span><small class="dl-text"></small></div>
           <div class="btn-row"><button class="pill primary" data-a="dl">${dl?.running ? 'Pause' : dl && dl.total && dl.done < dl.total ? 'Resume' : 'Download map for offline'}</button></div>
           <p class="muted small storage-line">Checking storage…</p>
+          ${token ? '<div class="btn-row"><button class="pill" data-a="shots">Download screenshots for offline</button></div><p class="muted small shots-line" hidden></p>' : ''}
         </section>` : ''}
         <section id="set-data">
           <h3 class="sec-h">Data source</h3>
@@ -176,6 +179,22 @@ export class SettingsView {
       if (k === 'found') this.d.hideFound?.set(v === 'hide');
       else this.d.prefs?.set(k as 'markerSize' | 'theme', v as never);
       pref.parentElement!.querySelectorAll('[data-pref]').forEach((b) => b.setAttribute('aria-checked', String(b === pref)));
+      return;
+    }
+    if (a === 'shots') {
+      const btn = t.closest<HTMLButtonElement>('[data-a="shots"]')!;
+      const line = this.sheet.body.querySelector<HTMLElement>('.shots-line')!;
+      if (this.shotStop) { this.shotStop.stop = true; return; }
+      if (!navigator.onLine) { toast("You're offline"); return; }
+      const list = await thumbnailSources();
+      if (!list.length) { toast('No screenshots in your data yet (run the sync)'); return; }
+      this.shotStop = { stop: false };
+      btn.textContent = 'Stop';
+      line.hidden = false;
+      const n = await prefetchShots(list, (d, tot) => { line.textContent = `${d} / ${tot} screenshots`; }, this.shotStop);
+      line.textContent = `${n} of ${list.length} screenshots saved on this device`;
+      btn.textContent = 'Download screenshots for offline';
+      this.shotStop = null;
       return;
     }
     if (a === 'dl' && this.d.downloader) {
