@@ -1,0 +1,48 @@
+{
+ "set": "day",
+ "source": "gtadb.org and all contributors (CC BY 4.0)",
+ "zooms": {
+  "0": {
+   "minX": 0,
+   "maxX": 2,
+   "minY": 0,
+   "maxY": 3
+  },
+  "1": {
+   "minX": 1,
+   "maxX": 5,
+   "minY": 1,
+   "maxY": 6
+  },
+  "2": {
+   "minX": 2,
+   "maxX": 10,
+   "minY": 2,
+   "maxY": 12
+  },
+  "3": {
+   "minX": 4,
+   "maxX": 20,
+   "minY": 4,
+   "maxY": 25
+  },
+  "4": {
+   "minX": 8,
+   "maxX": 41,
+   "minY": 8,
+   "maxY": 51
+  },
+  "5": {
+   "minX": 17,
+   "maxX": 83,
+   "minY": 17,
+   "maxY": 103
+  },
+  "6": {
+   "minX": 34,
+   "maxX": 167,
+   "minY": 34,
+   "maxY": 206
+  }
+ }
+}

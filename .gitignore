@@ -1,0 +1,8 @@
+node_modules/
+dist/
+vendor-src/
+# GTABase data: dev-only local copy, NEVER commit (private, personal-use permission)
+dev-data/
+test-results/
+playwright-report/
+.DS_Store
