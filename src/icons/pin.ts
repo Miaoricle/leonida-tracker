@@ -21,7 +21,7 @@ export function pinIcon(categoryId: string, color: string, state: PinState = 'no
     const badge = state === 'found' ? `<span class="pin-badge pin-check">${glyphSvg('check', 12)}</span>`
       : state === 'new' ? '<span class="pin-badge pin-new">NEW</span>' : '';
     icon = L.divIcon({
-      className: `pin pin-${state}`,
+      className: `pin pin-s-${state}`,
       html: `<span class="pin-dot" style="--c:${color};width:${size}px;height:${size}px">${glyphSvg(iconFor(categoryId), g)}</span>${badge}`,
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2],

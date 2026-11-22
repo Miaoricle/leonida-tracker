@@ -8,7 +8,6 @@ export interface MarkerLayerOptions {
   onSelect?: (m: Marker) => void;
   isFound?: (id: string) => boolean;
   isNew?: (m: Marker) => boolean;
-  foundStyle?: () => 'fade' | 'hide';
   size?: () => number;
 }
 
@@ -20,11 +19,13 @@ export class MarkerLayer {
   readonly cluster: L.MarkerClusterGroup;
   private built = new Map<string, L.Marker[]>();
   private visible = new Set<string>();
+  private shown = new Set<L.Marker>();
+  private hideFound = false;
   private byCat = new Map<string, Marker[]>();
   private leaflet = new Map<string, L.Marker>();
   private colors = new Map<string, string>();
 
-  constructor(map: L.Map, markers: Marker[], categories: Category[], groups: Group[], private opts: MarkerLayerOptions = {}) {
+  constructor(private map: L.Map, markers: Marker[], categories: Category[], groups: Group[], private opts: MarkerLayerOptions = {}) {
     const gColor = new Map(groups.map((g) => [g.id, g.color]));
     for (const c of categories) this.colors.set(c.id, c.color || gColor.get(c.group) || '#888');
     for (const m of markers) {
@@ -80,31 +81,72 @@ export class MarkerLayer {
     return list;
   }
 
-  /** Set the visible categories (debounce at the caller). */
-  setVisible(ids: Iterable<string>): void {
-    const next = new Set(ids);
-    const add: L.Marker[] = [], remove: L.Marker[] = [];
-    for (const id of this.visible) if (!next.has(id)) remove.push(...(this.built.get(id) ?? []));
-    for (const id of next) if (!this.visible.has(id)) add.push(...this.build(id));
+  /**
+   * Show exactly the markers of the given categories, optionally without found ones. Diffs against what's on the
+   * map so toggling one category only touches that category's markers. Debounce at the caller.
+   */
+  apply(ids: Iterable<string>, hideFound = false): void {
+    this.visible = new Set(ids);
+    this.hideFound = hideFound;
+    const want = new Set<L.Marker>();
+    for (const id of this.visible) for (const lm of this.build(id)) if (!(hideFound && this.opts.isFound?.(dataOf(lm).id))) want.add(lm);
+    const remove = [...this.shown].filter((l) => !want.has(l));
+    const add = [...want].filter((l) => !this.shown.has(l));
     if (remove.length) this.cluster.removeLayers(remove);
-    if (add.length) this.cluster.addLayers(add.filter((l) => !this.isHiddenFound(l)));
-    this.visible = next;
+    if (add.length) this.cluster.addLayers(add);
+    this.shown = want;
   }
 
-  private isHiddenFound(l: L.Marker): boolean {
-    return this.opts.foundStyle?.() === 'hide' && !!this.opts.isFound?.((l as L.Marker & { data: Marker }).data.id);
-  }
-
-  /** Re-draw one marker after its found/new state changed. */
+  /** Re-draw one marker after its found/new state changed (and add/remove it when found markers are hidden). */
   refresh(id: string): void {
-    const lm = this.leaflet.get(id) as (L.Marker & { data: Marker }) | undefined;
+    const lm = this.leaflet.get(id);
     if (!lm) return;
-    lm.setIcon(pinIcon(lm.data.category, this.colors.get(lm.data.category) ?? '#888', this.stateOf(lm.data), this.opts.size?.() ?? 30));
+    const m = dataOf(lm);
+    lm.setIcon(pinIcon(m.category, this.colors.get(m.category) ?? '#888', this.stateOf(m), this.opts.size?.() ?? 30));
+    if (this.hideFound && this.visible.has(m.category)) this.apply(this.visible, true);
   }
 
-  get(id: string): L.Marker | undefined {
-    const m = [...this.byCat.values()].flat().find((x) => x.id === id);
-    if (m) this.build(m.category);
-    return this.leaflet.get(id);
+  /** Re-draw every built marker (e.g. after switching profile). */
+  refreshAll(): void {
+    for (const lm of this.leaflet.values()) {
+      const m = dataOf(lm);
+      lm.setIcon(pinIcon(m.category, this.colors.get(m.category) ?? '#888', this.stateOf(m), this.opts.size?.() ?? 30));
+    }
+    this.apply(this.visible, this.hideFound);
   }
+
+  markersOf(categoryId: string): Marker[] { return this.byCat.get(categoryId) ?? []; }
+
+  /** Fly to a marker, uncluster it and pulse it. Ensures its category is built. */
+  focus(m: Marker, zoom = 5): void {
+    this.build(m.category);
+    const lm = this.leaflet.get(m.id);
+    const ll = toLatLng(m.x, m.y);
+    const go = () => {
+      if (lm && this.shown.has(lm)) this.cluster.zoomToShowLayer(lm, () => pulse(lm));
+      else this.pulseAt(ll);
+    };
+    const anim = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (this.map.getZoom() < zoom || !this.map.getBounds().pad(-0.2).contains(ll)) {
+      this.map.once('moveend', go);
+      if (anim) this.map.flyTo(ll, Math.max(zoom, this.map.getZoom()), { duration: 0.8 });
+      else this.map.setView(ll, Math.max(zoom, this.map.getZoom()), { animate: false });
+    } else go();
+  }
+
+  private pulseAt(ll: L.LatLng) {
+    const ring = L.marker(ll, { interactive: false, icon: L.divIcon({ className: 'pulse', iconSize: [56, 56] }) }).addTo(this.map);
+    setTimeout(() => ring.remove(), 1600);
+  }
+}
+
+const dataOf = (l: L.Marker) => (l as L.Marker & { data: Marker }).data;
+
+function pulse(lm: L.Marker) {
+  const el = lm.getElement();
+  if (!el) return;
+  el.classList.remove('pin-pulse');
+  void el.offsetWidth;
+  el.classList.add('pin-pulse');
+  setTimeout(() => el.classList.remove('pin-pulse'), 1600);
 }
