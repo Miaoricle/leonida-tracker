@@ -16,13 +16,13 @@ export class PersonalLayer {
   visible = true;
 
   constructor(map: L.Map, private store: PersonalStore, private color: (categoryId: string) => string | undefined,
-    private opts: { onSelect: (m: PersonalMarker) => void; isFound: (id: string) => boolean }) {
+    private opts: { onSelect: (m: PersonalMarker) => void; isFound: (id: string) => boolean; size?: () => number }) {
     this.group.addTo(map);
     store.on(() => this.render());
   }
 
   private icon(m: PersonalMarker) {
-    const icon = pinIcon(m.customCategory ? 'custom' : m.category, this.color(m.category) ?? CUSTOM_COLOR, this.opts.isFound(m.id) ? 'found' : 'normal', 30, m.id === this.selected);
+    const icon = pinIcon(m.customCategory ? 'custom' : m.category, this.color(m.category) ?? CUSTOM_COLOR, this.opts.isFound(m.id) ? 'found' : 'normal', this.opts.size?.() ?? 30, m.id === this.selected);
     return L.divIcon({ ...icon.options, className: `${icon.options.className} pin-user` });
   }
 

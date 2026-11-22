@@ -20,20 +20,31 @@ if (!fs.existsSync(TILES)) {
 }
 fs.rmSync(OUT, { recursive: true, force: true });
 const ranges = {};
+const index = {}; // z -> { bytes, count, rows: { y: [[x0, x1], ...] } } for offline download
 let files = 0, bytes = 0;
 for (const z of fs.readdirSync(TILES).filter((d) => /^\d+$/.test(d)).sort((a, b) => a - b)) {
   fs.mkdirSync(path.join(OUT, z), { recursive: true });
   const r = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
+  const zi = { bytes: 0, count: 0, rows: {} };
   for (const f of fs.readdirSync(path.join(TILES, z))) {
     const m = f.match(/^(\d+),(\d+),(\d+)\.jpg$/);
     if (!m) continue;
     const [y, x] = [+m[2], +m[3]];
     r.minX = Math.min(r.minX, x); r.maxX = Math.max(r.maxX, x); r.minY = Math.min(r.minY, y); r.maxY = Math.max(r.maxY, y);
     fs.copyFileSync(path.join(TILES, z, f), path.join(OUT, z, f));
-    files++; bytes += fs.statSync(path.join(OUT, z, f)).size;
+    const size = fs.statSync(path.join(OUT, z, f)).size;
+    files++; bytes += size; zi.bytes += size; zi.count++;
+    (zi.rows[y] ??= []).push(x);
   }
   ranges[z] = r;
+  for (const y of Object.keys(zi.rows)) {
+    const xs = zi.rows[y].sort((a, b) => a - b); const runs = [];
+    for (const x of xs) { const last = runs[runs.length - 1]; if (last && x === last[1] + 1) last[1] = x; else runs.push([x, x]); }
+    zi.rows[y] = runs;
+  }
+  index[z] = zi;
 }
 fs.copyFileSync(path.join(SRC, 'LICENSE-DATA'), path.join(OUT, 'LICENSE-DATA.txt'));
 fs.writeFileSync(path.join(OUT, 'ranges.json'), JSON.stringify({ set: SET, source: 'gtadb.org and all contributors (CC BY 4.0)', zooms: ranges }, null, 1));
+fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify(index));
 console.log(`Copied ${files} tiles, ${(bytes / 1e6).toFixed(1)} MB`, ranges);

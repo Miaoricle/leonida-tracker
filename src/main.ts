@@ -30,7 +30,11 @@ import { dialog } from './ui/dialog';
 import { toast } from './ui/toast';
 import { appUrl, copyText, shareLink } from './ui/share';
 import { parseLink, syncUrl, formatAt } from './deeplink';
-import { glyphSvg } from './icons/pin';
+import { glyphSvg, clearPinCache } from './icons/pin';
+import { initPwa, initOfflineChip } from './pwa';
+import { OfflineDownloader } from './offline';
+import { PrefStore, PIN_PX, applyTheme } from './state/prefs';
+import { setKeepAwake } from './wakelock';
 
 const START = { id: 'safehouse-001', z: 2 };
 const PLACE_ZOOM: Record<Label['type'], number> = { county: 1, region: 2, city: 3, town: 4, district: 5 };
@@ -48,6 +52,16 @@ function onDataChanged(r: UpdateResult) {
 
 async function boot() {
   requestPersistence();
+  initPwa();
+  initOfflineChip();
+  const prefs = await PrefStore.load();
+  applyTheme(prefs.value.theme);
+  matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => applyTheme(prefs.value.theme));
+  if (prefs.value.keepAwake) void setKeepAwake(true);
+  prefs.on((p, k) => { if (k === 'theme') applyTheme(p.theme); if (k === 'keepAwake') void setKeepAwake(p.keepAwake); });
+  const downloader = new OfflineDownloader();
+  // filled in once the map data is loaded
+  const hooks: { hideFound?: { get: () => boolean; set: (on: boolean) => void } } = {};
   const el = document.getElementById('map')!;
   const ranges: TileRanges = await (await fetch(`${import.meta.env.BASE_URL}tiles/ranges.json`)).json();
   const map = createMap(el, ranges);
@@ -70,6 +84,9 @@ async function boot() {
     onDataChanged,
     onBackupImported: () => setTimeout(() => location.reload(), 1200),
     coordPicker: { get: () => coordPicker, set: (on) => { coordPicker = on; el.classList.toggle('picking', on); toast(on ? 'Coordinate picker on: tap the map' : 'Coordinate picker off'); } },
+    prefs,
+    hideFound: { get: () => hooks.hideFound?.get() ?? false, set: (on) => hooks.hideFound?.set(on) },
+    downloader,
   });
   map.on('click', (e: L.LeafletMouseEvent) => { if (coordPicker) showCoords(map, e.latlng); });
 
@@ -82,10 +99,12 @@ async function boot() {
     void settings.open('data');
     return;
   }
-  await runApp(map, data, progress, settings, link);
+  await runApp(map, data, progress, settings, link, prefs, hooks);
 }
 
-async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settings: SettingsView, link: ReturnType<typeof parseLink>) {
+async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settings: SettingsView, link: ReturnType<typeof parseLink>,
+  prefs: PrefStore, hooks: { hideFound?: { get: () => boolean; set: (on: boolean) => void } }) {
+  const pinSize = () => PIN_PX[prefs.value.markerSize];
   addLabels(map, data.labels);
   const filters = await FilterStore.load(data.categories);
   const personal = new PersonalStore();
@@ -103,12 +122,16 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
     isFound: progress.isFound,
     isNew: (m) => newIds.has(m.id),
     onSelect: (m) => openMarker(m, { fly: false }),
+    size: pinSize,
   });
   const personalLayer = new PersonalLayer(map, personal, (id) => catById.get(id)?.color, {
     onSelect: (m) => openMarker(m, { fly: false }),
     isFound: progress.isFound,
+    size: pinSize,
   });
   personalLayer.render();
+  prefs.on((_p, k) => { if (k === 'markerSize') { clearPinCache(); layer.refreshAll(); personalLayer.render(); } });
+  hooks.hideFound = { get: () => filters.state.hideFound, set: (on) => filters.update((s) => ({ ...s, hideFound: on })) };
 
   // counts are cached and recomputed only when progress changes
   let counts = computeCounts();

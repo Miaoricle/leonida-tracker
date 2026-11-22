@@ -10,7 +10,41 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
+  --ov: 255, 255, 255; /* overlay tint for surfaces, borders, bars */
+  --accent: #8cc8ff;
 }
+:root[data-theme="light"] {
+  --bg: #f3f6f9;
+  --fg: #14202b;
+  --muted: #5a6b7a;
+  --panel: rgba(250, 252, 254, 0.96);
+  --panel-solid: #fafcfe;
+  --ov: 20, 32, 43;
+  --accent: #0b62c4;
+  color-scheme: light;
+}
+:root[data-theme="light"] .cluster { background: rgba(250, 252, 254, 0.92); color: #14202b; border-color: rgba(20, 32, 43, 0.5); }
+:root[data-theme="light"] .search { background: rgba(243, 246, 249, 0.98); }
+:root[data-theme="light"] .toast { background: #14202b; color: #fff; }
+:root[data-theme="light"] .toast button { color: #8cc8ff; }
+:root[data-theme="light"] .lbl span { text-shadow: 0 0 3px #000, 0 0 6px rgba(0, 0, 0, 0.8); }
+:root[data-theme="light"] .only[aria-pressed="true"] { background: #14202b; color: #fff; }
+:root[data-theme="light"] .field textarea, :root[data-theme="light"] .field input, :root[data-theme="light"] .field select { background: #fff; }
+:root[data-theme="light"] .ring > span { background: var(--panel-solid); }
+
+/* offline chip + segmented control */
+.offline-chip {
+  position: fixed; z-index: 1050; left: calc(var(--safe-l) + 12px); top: calc(var(--safe-t) + 12px);
+  padding: 6px 12px; border-radius: 16px; background: #c62828; color: #fff; font: 600 13px/1.2 var(--font);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+.offline-chip[hidden] { display: none; }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: rgba(var(--ov), 0.07); }
+.seg button { min-height: 40px; border: 0; border-radius: 10px; background: none; color: var(--fg); font-weight: 600; font-size: 14px; cursor: pointer; }
+.seg [aria-checked="true"] { background: rgba(var(--ov), 0.18); }
+.dl-progress { display: grid; gap: 6px; margin: 4px 0 8px; }
+.dl-progress .bar { height: 8px; --c: #2e9d57; }
+.dl-progress small { color: var(--muted); font-variant-numeric: tabular-nums; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: var(--font); overscroll-behavior: none; }

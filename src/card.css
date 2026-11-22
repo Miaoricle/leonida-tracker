@@ -6,12 +6,12 @@
 .card-sheet .sheet-title { font-size: 19px; line-height: 1.25; padding-right: 8px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .card { display: grid; gap: 14px; padding-top: 4px; }
 .card-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 16px; background: rgba(255, 255, 255, 0.08); font-size: 13px; font-weight: 600; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 16px; background: rgba(var(--ov), 0.08); font-size: 13px; font-weight: 600; }
 .chip-ico { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--c); color: #fff; }
 .card-n { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .found-btn {
   display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 56px; width: 100%;
-  border-radius: 16px; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.06);
+  border-radius: 16px; border: 2px solid rgba(var(--ov), 0.25); background: rgba(var(--ov), 0.06);
   font-size: 17px; font-weight: 700; cursor: pointer; -webkit-user-select: none; user-select: none;
 }
 .found-btn .found-ico { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; border: 2px solid currentColor; opacity: 0.6; }
@@ -22,33 +22,33 @@
 .card-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .act {
   display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 60px; padding: 8px 4px;
-  border: 0; border-radius: 14px; background: rgba(255, 255, 255, 0.06); font-size: 12px; cursor: pointer;
+  border: 0; border-radius: 14px; background: rgba(var(--ov), 0.06); font-size: 12px; cursor: pointer;
 }
 .act.fav.on { color: #ffd54f; }
-.card-img { display: block; padding: 0; border: 0; border-radius: 14px; overflow: hidden; background: rgba(255, 255, 255, 0.05); cursor: zoom-in; aspect-ratio: 16 / 9; }
+.card-img { display: block; padding: 0; border: 0; border-radius: 14px; overflow: hidden; background: rgba(var(--ov), 0.05); cursor: zoom-in; aspect-ratio: 16 / 9; }
 .card-img img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .card-desc { margin: 0; line-height: 1.5; font-size: 15px; white-space: pre-line; }
 .field { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
 .field textarea, .field input, .field select {
-  width: 100%; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(0, 0, 0, 0.25);
+  width: 100%; border-radius: 12px; border: 1px solid rgba(var(--ov), 0.16); background: rgba(0, 0, 0, 0.25);
   color: var(--fg); font: 16px/1.4 var(--font); padding: 10px 12px; min-height: 44px; resize: vertical;
 }
 .card-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .card-nav .pill { display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
 .card-nav .pill:disabled { opacity: 0.35; }
 .card-credit { margin: 0; font-size: 12px; color: var(--muted); }
-.card-credit a, .muted a { color: #8cc8ff; }
+.card-credit a, .muted a { color: var(--accent); }
 
 /* ---------- image viewer ---------- */
 .viewer { position: fixed; inset: 0; z-index: 1200; background: rgba(0, 0, 0, 0.94); display: grid; }
 .viewer-scroll { overflow: auto; display: grid; place-items: center; touch-action: pinch-zoom pan-x pan-y; padding: calc(var(--safe-t) + 56px) 0 calc(var(--safe-b) + 16px); }
 .viewer img { max-width: 100vw; max-height: calc(100vh - var(--safe-t) - var(--safe-b) - 72px); object-fit: contain; }
-.viewer-close { position: fixed; top: calc(var(--safe-t) + 8px); right: calc(var(--safe-r) + 8px); color: #fff; background: rgba(255, 255, 255, 0.12); border-radius: 50%; z-index: 1; }
+.viewer-close { position: fixed; top: calc(var(--safe-t) + 8px); right: calc(var(--safe-r) + 8px); color: #fff; background: rgba(var(--ov), 0.12); border-radius: 50%; z-index: 1; }
 
 /* ---------- menu / stats / profiles ---------- */
 .menu { list-style: none; margin: 0; padding: 4px 0; display: grid; gap: 4px; }
 .menu button { width: 100%; display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 0 12px; border: 0; border-radius: 12px; background: none; text-align: left; font-size: 16px; cursor: pointer; }
-.menu button:hover, .menu button:focus-visible { background: rgba(255, 255, 255, 0.07); }
+.menu button:hover, .menu button:focus-visible { background: rgba(var(--ov), 0.07); }
 .menu span { display: grid; }
 .menu small { color: var(--muted); font-size: 12px; }
 .sec-h { margin: 20px 2px 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
@@ -56,7 +56,7 @@
 .stats { padding-bottom: 12px; }
 .ring {
   --p: 0; width: 168px; height: 168px; margin: 8px auto 0; border-radius: 50%; display: grid; place-items: center;
-  background: conic-gradient(#2e9d57 calc(var(--p) * 1%), rgba(255, 255, 255, 0.1) 0);
+  background: conic-gradient(#2e9d57 calc(var(--p) * 1%), rgba(var(--ov), 0.1) 0);
 }
 .ring > span { width: 136px; height: 136px; border-radius: 50%; background: var(--panel-solid); display: grid; place-content: center; text-align: center; }
 .ring b { font-size: 34px; }
@@ -68,7 +68,7 @@
 .sg-row span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
 .stat-groups .bar { height: 6px; }
 .recent { gap: 0; }
-.profiles li { display: flex; align-items: center; gap: 4px; border-radius: 12px; background: rgba(255, 255, 255, 0.05); padding-right: 4px; }
+.profiles li { display: flex; align-items: center; gap: 4px; border-radius: 12px; background: rgba(var(--ov), 0.05); padding-right: 4px; }
 .profiles li.active { background: rgba(46, 157, 87, 0.18); }
 .prof-pick { flex: 1; display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 12px; border: 0; background: none; text-align: left; font-size: 16px; cursor: pointer; }
 .radio { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--muted); flex: none; }

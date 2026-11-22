@@ -5,6 +5,9 @@ import { checkForUpdates, describeUpdate, repoConfig, type RemovedInfo, type Upd
 import { importDataFiles } from '../data/importfile';
 import { exportBackup, importBackup, markBackedUp, parseBackup, saveJsonFile } from '../backup';
 import type { ProgressStore } from '../state/progress';
+import type { PrefStore } from '../state/prefs';
+import { OfflineDownloader, estimate, mb, storageUsage, tileIndex, cachedTileCount } from '../offline';
+import { wakeLockSupported } from '../wakelock';
 import { Sheet } from './sheet';
 import { dialog } from './dialog';
 import { toast } from './toast';
@@ -15,6 +18,9 @@ export interface SettingsDeps {
   onDataChanged: (r: UpdateResult) => void;
   onBackupImported: () => void;
   coordPicker: { get: () => boolean; set: (on: boolean) => void };
+  prefs?: PrefStore;
+  hideFound?: { get: () => boolean; set: (on: boolean) => void };
+  downloader?: OfflineDownloader;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -27,11 +33,12 @@ export class SettingsView {
 
   constructor(private d: SettingsDeps) {
     this.sheet = new Sheet({ id: 'settings', title: 'Settings' });
+    d.downloader?.on((st) => this.syncDownload(st));
     this.sheet.body.addEventListener('click', (e) => void this.onClick(e));
     this.sheet.body.addEventListener('change', (e) => void this.onChange(e));
   }
 
-  async open(section?: 'data' | 'backup') {
+  async open(section?: 'data' | 'backup' | 'offline') {
     await this.render();
     this.sheet.open('full');
     if (section) this.sheet.body.querySelector(`#set-${section}`)?.scrollIntoView({ block: 'start' });
@@ -46,8 +53,27 @@ export class SettingsView {
     ]);
     const removed = await this.removedRows();
     const synced = ds?.meta?.syncedAt;
+    const p = this.d.prefs?.value;
+    const idx = this.d.downloader?.supported ? await tileIndex().catch(() => null) : null;
+    const seg = (name: string, cur: string, opts: [string, string][]) => `<div class="seg" role="radiogroup">${opts.map(([v, l]) => `<button role="radio" data-pref="${name}" data-v="${v}" aria-checked="${v === cur}">${l}</button>`).join('')}</div>`;
+    const dl = this.d.downloader?.state;
     this.sheet.body.innerHTML = `
       <div class="settings">
+        ${p ? `<section id="set-display">
+          <h3 class="sec-h">Display</h3>
+          <div class="field"><span>Found markers</span>${seg('found', this.d.hideFound?.get() ? 'hide' : 'fade', [['fade', 'Faded'], ['hide', 'Hidden']])}</div>
+          <div class="field"><span>Marker size</span>${seg('markerSize', p.markerSize, [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']])}</div>
+          <div class="field"><span>Theme</span>${seg('theme', p.theme, [['dark', 'Dark'], ['light', 'Light'], ['system', 'System']])}</div>
+          ${wakeLockSupported() ? `<label class="switch-row"><span>Keep screen awake<small>While the app is open</small></span><input type="checkbox" class="switch awake" ${p.keepAwake ? 'checked' : ''}></label>` : ''}
+        </section>` : ''}
+        ${idx ? `<section id="set-offline">
+          <h3 class="sec-h">Offline map</h3>
+          <p class="muted small">Markers and your progress always work offline. Map tiles you've viewed are cached; download the rest here.</p>
+          <label class="field"><span>Download detail</span><select class="dl-zoom">${[4, 5, 6].map((z) => `<option value="${z}" ${(dl?.maxZoom ?? 5) === z ? 'selected' : ''}>${z === 4 ? 'Overview' : z === 5 ? 'Detailed' : 'Full detail'} (≈ ${mb(estimate(idx, z).bytes)})</option>`).join('')}</select></label>
+          <div class="dl-progress" ${dl && dl.total ? '' : 'hidden'}><span class="bar"><i></i></span><small class="dl-text"></small></div>
+          <div class="btn-row"><button class="pill primary" data-a="dl">${dl?.running ? 'Pause' : dl && dl.total && dl.done < dl.total ? 'Resume' : 'Download map for offline'}</button></div>
+          <p class="muted small storage-line">Checking storage…</p>
+        </section>` : ''}
         <section id="set-data">
           <h3 class="sec-h">Data source</h3>
           <p class="status-line">${ds ? `<b>Synced ${day(synced)}, ${ds.markers.length.toLocaleString()} locations</b>` : '<b>No map data yet</b>'}
@@ -88,7 +114,28 @@ export class SettingsView {
           <label class="switch-row"><span>Coordinate picker<small>Tap the map to show and copy game x, y</small></span>
             <input type="checkbox" class="switch coord" ${this.d.coordPicker.get() ? 'checked' : ''}></label>
         </section>
+        <p class="muted small">Locations: GTABase.com (personal use, with permission) · Tiles: gtadb.org (CC BY 4.0) · Icons: Material Symbols</p>
       </div>`;
+    this.syncDownload();
+    void this.syncStorage();
+  }
+
+  private syncDownload(st = this.d.downloader?.state) {
+    const box = this.sheet.body.querySelector<HTMLElement>('.dl-progress');
+    if (!box || !st) return;
+    box.hidden = !st.total;
+    box.querySelector<HTMLElement>('.bar i')!.style.width = `${st.total ? Math.round((st.done / st.total) * 100) : 0}%`;
+    box.querySelector('.dl-text')!.textContent = `${st.done.toLocaleString()} / ${st.total.toLocaleString()} tiles${st.failed ? ` · ${st.failed} failed` : ''}${!st.running && st.done >= st.total && st.total ? ' · done ✓' : ''}`;
+    const b = this.sheet.body.querySelector<HTMLButtonElement>('[data-a="dl"]');
+    if (b) b.textContent = st.running ? 'Pause' : st.total && st.done < st.total ? 'Resume' : 'Download map for offline';
+    if (!st.running) void this.syncStorage();
+  }
+
+  private async syncStorage() {
+    const el = this.sheet.body.querySelector('.storage-line');
+    if (!el) return;
+    const [u, n] = await Promise.all([storageUsage(), cachedTileCount()]);
+    el.textContent = `${n.toLocaleString()} tiles cached${u ? ` · app storage ${mb(u.usage)} of ${mb(u.quota)} available` : ''}`;
   }
 
   private async removedRows() {
@@ -123,6 +170,25 @@ export class SettingsView {
     const t = e.target as HTMLElement;
     const a = t.closest<HTMLElement>('[data-a]')?.dataset.a;
     const forget = t.closest<HTMLElement>('[data-forget]')?.dataset.forget;
+    const pref = t.closest<HTMLElement>('[data-pref]');
+    if (pref) {
+      const k = pref.dataset.pref!, v = pref.dataset.v!;
+      if (k === 'found') this.d.hideFound?.set(v === 'hide');
+      else this.d.prefs?.set(k as 'markerSize' | 'theme', v as never);
+      pref.parentElement!.querySelectorAll('[data-pref]').forEach((b) => b.setAttribute('aria-checked', String(b === pref)));
+      return;
+    }
+    if (a === 'dl' && this.d.downloader) {
+      const dlr = this.d.downloader;
+      if (dlr.state.running) dlr.pause();
+      else {
+        if (!navigator.onLine) { toast("You're offline"); return; }
+        const z = +this.sheet.body.querySelector<HTMLSelectElement>('.dl-zoom')!.value;
+        void navigator.storage?.persist?.();
+        void dlr.start(z);
+      }
+      return;
+    }
     if (a === 'test') {
       const repo = this.readRepo();
       if (!repo) return;
@@ -167,6 +233,8 @@ export class SettingsView {
   private async onChange(e: Event) {
     const t = e.target as HTMLInputElement;
     if (t.classList.contains('coord')) { this.d.coordPicker.set(t.checked); return; }
+    if (t.classList.contains('awake')) { this.d.prefs?.set('keepAwake', t.checked); return; }
+    if (t.classList.contains('dl-zoom')) return;
     const files = t.files;
     if (!files?.length) return;
     if (t.classList.contains('data-file')) {
