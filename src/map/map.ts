@@ -8,11 +8,19 @@ export const MIN_ZOOM = -1;
 export const MAX_ZOOM = 7;
 const VIEW_KEY = 'leonida.view';
 
+/**
+ * Sharpness on high-density screens (iPhone = 3 device px per CSS px): load the NEXT zoom level's tiles at half
+ * size, so each screen pixel gets a real map pixel instead of a stretched one (same idea as Leaflet's
+ * detectRetina, done explicitly so the tile-range check and max native zoom stay correct).
+ */
+export const TILE_OFFSET = (globalThis.devicePixelRatio ?? 1) >= 1.5 ? 1 : 0;
+
 /** Tile layer that only requests tiles that exist in the vendored set (no 404 storms). */
 const RangedTileLayer = L.TileLayer.extend({
   _isValidTile(this: L.TileLayer & { options: { ranges: TileRanges } }, coords: L.Coords) {
-    const z = Math.min(coords.z, MAX_NATIVE_ZOOM);
-    const scale = 2 ** (coords.z - z);
+    const want = coords.z + TILE_OFFSET; // grid zoom -> zoom in the tile URL
+    const z = Math.min(want, MAX_NATIVE_ZOOM);
+    const scale = 2 ** (want - z);
     const r = this.options.ranges.zooms[String(z)];
     if (!r) return false;
     const x = Math.floor(coords.x / scale), y = Math.floor(coords.y / scale);
@@ -48,8 +56,9 @@ export function createMap(el: HTMLElement, ranges: TileRanges): L.Map {
   const tileUrl = `${import.meta.env.BASE_URL}tiles/{z}/{z},{y},{x}.jpg`;
   new (RangedTileLayer as unknown as new (url: string, o: object) => L.TileLayer)(tileUrl, {
     ranges,
-    tileSize: 256,
-    maxNativeZoom: MAX_NATIVE_ZOOM,
+    tileSize: 256 / 2 ** TILE_OFFSET,
+    zoomOffset: TILE_OFFSET,
+    maxNativeZoom: MAX_NATIVE_ZOOM - TILE_OFFSET,
     minZoom: MIN_ZOOM,
     maxZoom: MAX_ZOOM,
     noWrap: true,

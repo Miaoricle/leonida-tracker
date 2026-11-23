@@ -4,8 +4,9 @@ export interface Prefs {
   markerSize: 'small' | 'medium' | 'large';
   theme: 'dark' | 'light' | 'system';
   keepAwake: boolean;
+  vividMap: boolean;
 }
-export const DEFAULT_PREFS: Prefs = { markerSize: 'medium', theme: 'dark', keepAwake: false };
+export const DEFAULT_PREFS: Prefs = { markerSize: 'medium', theme: 'dark', keepAwake: false, vividMap: true };
 export const PIN_PX: Record<Prefs['markerSize'], number> = { small: 24, medium: 30, large: 38 };
 
 type Listener = (p: Prefs, changed: keyof Prefs) => void;

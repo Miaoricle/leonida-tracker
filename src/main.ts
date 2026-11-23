@@ -58,13 +58,14 @@ async function boot() {
   applyTheme(prefs.value.theme);
   matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => applyTheme(prefs.value.theme));
   if (prefs.value.keepAwake) void setKeepAwake(true);
-  prefs.on((p, k) => { if (k === 'theme') applyTheme(p.theme); if (k === 'keepAwake') void setKeepAwake(p.keepAwake); });
+  prefs.on((p, k) => { if (k === 'theme') applyTheme(p.theme); if (k === 'keepAwake') void setKeepAwake(p.keepAwake); if (k === 'vividMap') el.classList.toggle('vivid', p.vividMap); });
   const downloader = new OfflineDownloader();
   // filled in once the map data is loaded
   const hooks: { hideFound?: { get: () => boolean; set: (on: boolean) => void } } = {};
   const el = document.getElementById('map')!;
   const ranges: TileRanges = await (await fetch(`${import.meta.env.BASE_URL}tiles/ranges.json`)).json();
   const map = createMap(el, ranges);
+  el.classList.toggle('vivid', prefs.value.vividMap);
   const [data, progress] = await Promise.all([loadDataset(), initProgress()]);
   const link = parseLink();
 

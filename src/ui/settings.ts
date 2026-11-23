@@ -64,6 +64,7 @@ export class SettingsView {
         ${p ? `<section id="set-display">
           <h3 class="sec-h">Display</h3>
           <div class="field"><span>Found markers</span>${seg('found', this.d.hideFound?.get() ? 'hide' : 'fade', [['fade', 'Faded'], ['hide', 'Hidden']])}</div>
+          <div class="field"><span>Map colours</span>${seg('vividMap', p.vividMap ? 'on' : 'off', [['on', 'Vivid'], ['off', 'Original']])}</div>
           <div class="field"><span>Marker size</span>${seg('markerSize', p.markerSize, [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']])}</div>
           <div class="field"><span>Theme</span>${seg('theme', p.theme, [['dark', 'Dark'], ['light', 'Light'], ['system', 'System']])}</div>
           ${wakeLockSupported() ? `<label class="switch-row"><span>Keep screen awake<small>While the app is open</small></span><input type="checkbox" class="switch awake" ${p.keepAwake ? 'checked' : ''}></label>` : ''}
@@ -177,6 +178,7 @@ export class SettingsView {
     if (pref) {
       const k = pref.dataset.pref!, v = pref.dataset.v!;
       if (k === 'found') this.d.hideFound?.set(v === 'hide');
+      else if (k === 'vividMap') this.d.prefs?.set('vividMap', v === 'on');
       else this.d.prefs?.set(k as 'markerSize' | 'theme', v as never);
       pref.parentElement!.querySelectorAll('[data-pref]').forEach((b) => b.setAttribute('aria-checked', String(b === pref)));
       return;

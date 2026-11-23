@@ -27,7 +27,7 @@
 :root[data-theme="light"] .search { background: rgba(243, 246, 249, 0.98); }
 :root[data-theme="light"] .toast { background: #14202b; color: #fff; }
 :root[data-theme="light"] .toast button { color: #8cc8ff; }
-:root[data-theme="light"] .lbl span { text-shadow: 0 0 3px #000, 0 0 6px rgba(0, 0, 0, 0.8); }
+
 :root[data-theme="light"] .only[aria-pressed="true"] { background: #14202b; color: #fff; }
 :root[data-theme="light"] .field textarea, :root[data-theme="light"] .field input, :root[data-theme="light"] .field select { background: #fff; }
 :root[data-theme="light"] .ring > span { background: var(--panel-solid); }
@@ -76,7 +76,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 .lbl { background: none; border: 0; white-space: nowrap; pointer-events: none; display: none; }
 .lbl span {
   display: inline-block; transform: translate(-50%, -50%); color: #fff;
-  text-shadow: 0 0 3px #000, 0 0 6px rgba(0, 0, 0, 0.8); font-weight: 700; letter-spacing: 0.04em;
+  font-weight: 800; letter-spacing: 0.04em;
+  /* crisp dark outline drawn under the fill (sharper than a blurred glow) */
+  -webkit-text-stroke: 3.5px rgba(8, 14, 20, 0.92); paint-order: stroke fill;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+  -webkit-font-smoothing: antialiased;
 }
 .lbl-county span { font-size: 15px; text-transform: uppercase; letter-spacing: 0.18em; color: #ffe9a8; }
 .lbl-region span { font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: #c8f0c8; font-style: italic; }
@@ -90,7 +94,12 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 #map[data-zoom="2"] .lbl-town, #map[data-zoom="3"] .lbl-town, #map[data-zoom="4"] .lbl-town, #map[data-zoom="5"] .lbl-town { display: block; }
 #map[data-zoom="3"] .lbl-district, #map[data-zoom="4"] .lbl-district, #map[data-zoom="5"] .lbl-district, #map[data-zoom="6"] .lbl-district, #map[data-zoom="7"] .lbl-district { display: block; }
 
-.county-line { stroke: rgba(255, 233, 168, 0.55); }
+.county-line { stroke: rgba(255, 233, 168, 0.75); }
+
+/* ---------- map clarity ---------- */
+/* "Vivid" map colours (Settings → Display): the gtadb day style is pale; lift contrast + saturation */
+#map.vivid .leaflet-tile-pane { filter: contrast(1.18) saturate(1.45) brightness(0.96); }
+.leaflet-tile { image-rendering: auto; -webkit-backface-visibility: hidden; }
 #map[data-zoom="3"] .county-line, #map[data-zoom="4"] .county-line, #map[data-zoom="5"] .county-line, #map[data-zoom="6"] .county-line, #map[data-zoom="7"] .county-line { display: none; }
 
 @media (prefers-reduced-motion: reduce) { .leaflet-zoom-anim .leaflet-zoom-animated { transition: none !important; } }
