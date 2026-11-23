@@ -49,7 +49,7 @@ export class Menu {
     this.profiles.body.addEventListener('click', (e) => void this.onProfileClick(e));
   }
 
-  open() { this.renderMenu(); this.sheet.open('half'); }
+  open() { this.renderMenu(); this.sheet.open('full'); } // 7 entries don't fit at half height on a phone
 
   private renderMenu() {
     const p = this.d.progress.profile;
