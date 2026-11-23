@@ -68,7 +68,7 @@ npm run guard        # check no GTABase data is in the repo / dist
 Category → icon mapping: `src/icons/mapping.ts`. Coordinate system and alignment notes: `src/map/crs.ts`.
 
 ## Credits
-- Locations & screenshots: [GTABase.com](https://www.gtabase.com/gta-6/map/), used with the owner's permission for personal use
+- Locations & screenshots: [GTABase.com](https://www.gtabase.com/gta-6/map/)
 - Map tiles: [gtadb.org](https://gtadb.org) and contributors (CC BY 4.0)
 - Icons: Google Material Symbols (Apache 2.0)
 - Fan project, not affiliated with Rockstar Games or Take-Two.
