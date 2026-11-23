@@ -78,15 +78,18 @@ export async function checkForUpdates(c: RepoConfig): Promise<UpdateResult> {
   await setSetting('data.lastCheck', new Date().toISOString());
   const meta = await fetchFile(c, 'meta', hasData ? await etag('meta') : undefined);
   if (!meta && hasData) {
-    // markers unchanged; screenshots are synced separately, so check the image manifest too (cheap 304)
-    const imgs = await fetchFile(c, 'images', await etag('images')).catch(() => null);
-    if (imgs) await db.dataCache.put({ key: 'images', json: imgs.json, etag: imgs.etag, fetchedAt: new Date().toISOString() });
-    return { status: 'unchanged', added: 0, removed: 0, renamed: 0, total: (await readCache())?.markers.length ?? 0, imagesUpdated: !!imgs };
+    // markers unchanged; screenshots and vehicles are synced separately, so check those too (cheap 304s)
+    let side = false;
+    for (const f of ['images', 'vehicles'] as const) {
+      const r = await fetchFile(c, f, await etag(f)).catch(() => null);
+      if (r) { side = true; await db.dataCache.put({ key: f, json: r.json, etag: r.etag, fetchedAt: new Date().toISOString() }); }
+    }
+    return { status: 'unchanged', added: 0, removed: 0, renamed: 0, total: (await readCache())?.markers.length ?? 0, imagesUpdated: side };
   }
   const files: Partial<Record<DataFile, unknown>> = {};
   const etags: Partial<Record<DataFile, string>> = {};
   if (meta) { files.meta = meta.json; etags.meta = meta.etag; }
-  for (const f of ['markers', 'categories', 'labels', 'images'] as const) {
+  for (const f of ['markers', 'categories', 'labels', 'images', 'vehicles'] as const) {
     const r = await fetchFile(c, f, hasData ? await etag(f) : undefined);
     if (r) { files[f] = r.json; etags[f] = r.etag; }
   }

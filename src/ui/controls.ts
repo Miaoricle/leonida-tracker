@@ -1,7 +1,7 @@
 import type L from 'leaflet';
 import { glyphSvg } from '../icons/pin';
 
-export interface ControlDeps { map: L.Map; onSearch: () => void; onFilters: () => void; onMenu: () => void }
+export interface ControlDeps { map: L.Map; onSearch: () => void; onFilters: () => void; onMenu: () => void; onVehicles?: () => void }
 
 /** Floating controls, bottom-right, in thumb reach: zoom ±, Search, Filters, Full screen, Menu (stats, profiles, reset, about). */
 export function createControls(d: ControlDeps): HTMLElement {
@@ -12,6 +12,7 @@ export function createControls(d: ControlDeps): HTMLElement {
   el.innerHTML = `
     <button class="fab" data-a="search" aria-label="Search">${glyphSvg('search')}</button>
     <button class="fab" data-a="filters" aria-label="Filters">${glyphSvg('tune')}</button>
+    ${d.onVehicles ? `<button class="fab" data-a="vehicles" aria-label="Vehicles">${glyphSvg('directions_car')}</button>` : ''}
     ${fsSupported ? `<button class="fab" data-a="fs" aria-label="Full screen">${glyphSvg('fullscreen')}</button>` : ''}
     <button class="fab" data-a="menu" aria-label="Menu">${glyphSvg('menu')}</button>
     <div class="fab-zoom">
@@ -25,6 +26,7 @@ export function createControls(d: ControlDeps): HTMLElement {
     else if (a === 'search') d.onSearch();
     else if (a === 'filters') d.onFilters();
     else if (a === 'menu') d.onMenu();
+    else if (a === 'vehicles') d.onVehicles?.();
     else if (a === 'fs') {
       if (document.fullscreenElement) void document.exitFullscreen();
       else void document.documentElement.requestFullscreen().catch(() => {});

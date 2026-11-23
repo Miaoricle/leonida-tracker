@@ -7,7 +7,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const src = path.resolve(process.argv[2] || path.join(ROOT, '../leonida-data'), 'data');
 const out = path.join(ROOT, 'dev-data');
 fs.mkdirSync(out, { recursive: true });
-for (const f of ['markers.json', 'categories.json', 'labels.json', 'meta.json']) {
+for (const f of ['markers.json', 'categories.json', 'labels.json', 'meta.json', 'vehicles.json', 'images.json']) {
+  if (!fs.existsSync(path.join(src, f))) continue;
   fs.copyFileSync(path.join(src, f), path.join(out, f));
   console.log('copied', f);
 }

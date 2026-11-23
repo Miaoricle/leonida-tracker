@@ -3,6 +3,7 @@ import './style.css';
 import './ui.css';
 import './card.css';
 import './settings.css';
+import './vehicles.css';
 import L from 'leaflet';
 import { createMap, readSavedView, type TileRanges } from './map/map';
 import { addLabels } from './map/labels';
@@ -31,6 +32,8 @@ import { toast } from './ui/toast';
 import { appUrl, copyText, shareLink } from './ui/share';
 import { parseLink, syncUrl, formatAt } from './deeplink';
 import { glyphSvg, clearPinCache } from './icons/pin';
+import { VehiclesView } from './ui/vehicles';
+import { loadVehicles, type Vehicle } from './data/vehicles';
 import { initPwa, initOfflineChip } from './pwa';
 import { OfflineDownloader } from './offline';
 import { PrefStore, PIN_PX, applyTheme } from './state/prefs';
@@ -258,14 +261,28 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
     onPlace: (l: Label) => map.flyTo(toLatLng(l.x, l.y), Math.max(PLACE_ZOOM[l.type], 1), { duration: 0.8 }),
   });
 
+  // ---- vehicles database ----
+  const vnorm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const vehicleMarkers = data.markers.filter((m) => /vehicle/.test(m.category));
+  const markerForVehicle = (v: Vehicle) => {
+    const n = vnorm(v.name);
+    return vehicleMarkers.find((m) => vnorm(m.name) === n) ?? vehicleMarkers.find((m) => vnorm(m.name).endsWith(` ${n}`));
+  };
+  const vehiclesView = new VehiclesView({
+    vehicles: loadVehicles,
+    canShowOnMap: (v) => !!markerForVehicle(v),
+    onShowOnMap: (v) => { const m = markerForVehicle(v); if (m) openMarker(m); return !!m; },
+  });
+
   const mymap = new MyMapView({ progress, personal, category: (id) => catById.get(id), marker: anyMarker, onOpen: (m) => openMarker(m) });
   const menu = new Menu({
     progress, groups: data.groups, categories: data.categories,
     markerById: anyMarker, markersOf: (id) => sortedByCat.get(id) ?? [], counts: () => counts,
     onOpenMarker: (m) => openMarker(m), onMyMap: () => mymap.open(), onSettings: () => void settings.open(),
+    onVehicles: () => void vehiclesView.open(),
   });
 
-  createControls({ map, onSearch: () => searchView.open(), onFilters: () => panel.sheet.toggle('half'), onMenu: () => menu.open() });
+  createControls({ map, onSearch: () => searchView.open(), onFilters: () => panel.sheet.toggle('half'), onMenu: () => menu.open(), onVehicles: () => void vehiclesView.open() });
 
   // ---- deep links ----
   if (link.feature) {
@@ -273,6 +290,7 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
     if (c) { filters.update((s) => toggleOnly({ ...s, only: null }, c.id, filters.allIds)); panel.sheet.open('peek'); }
   }
   applyFilters(true);
+  if (link.v) void vehiclesView.open(link.v);
   if (link.m) {
     const m = markerById.get(link.m);
     if (m) openMarker(m);
@@ -281,7 +299,7 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
 
   document.addEventListener('keydown', (e) => {
     if (e.key === '/' && !(e.target as HTMLElement).closest('input,textarea,select')) { e.preventDefault(); searchView.open(); }
-    if (e.key === 'Escape' && !e.defaultPrevented && card.sheet.snap !== 'closed' && !(e.target as HTMLElement).closest('.modal-wrap,.search,.viewer')) card.close();
+    if (e.key === 'Escape' && !e.defaultPrevented && card.sheet.snap !== 'closed' && !(e.target as HTMLElement).closest('.modal-wrap,.search,.viewer,.vehicles')) card.close();
   });
 
   // ---- background: daily update check, backup reminder ----

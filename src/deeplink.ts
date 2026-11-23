@@ -1,13 +1,14 @@
 // Deep links: ?feature=<category> · ?m=<markerId> · ?at=x,y,zoom ("Shared spot"). The URL is kept in sync with
 // history.replaceState so the address bar (and a reload) always reflects what's open.
 
-export interface LinkState { feature?: string | null; m?: string | null; at?: { x: number; y: number; z: number } | null }
+export interface LinkState { feature?: string | null; m?: string | null; v?: string | null; at?: { x: number; y: number; z: number } | null }
 
 export function parseLink(search = location.search): LinkState {
   const p = new URLSearchParams(search);
   const out: LinkState = {};
   if (p.get('feature')) out.feature = p.get('feature');
   if (p.get('m')) out.m = p.get('m');
+  if (p.get('v')) out.v = p.get('v');
   const at = p.get('at')?.split(',').map(Number);
   if (at && at.length >= 2 && at.slice(0, 2).every(Number.isFinite)) out.at = { x: at[0], y: at[1], z: Number.isFinite(at[2]) ? at[2] : 5 };
   return out;
@@ -23,6 +24,7 @@ export function syncUrl(s: LinkState): void {
   const set = (k: string, v: string | null | undefined) => (v ? u.searchParams.set(k, v) : u.searchParams.delete(k));
   if ('feature' in s) set('feature', s.feature);
   if ('m' in s) set('m', s.m);
+  if ('v' in s) set('v', s.v);
   if ('at' in s) set('at', s.at ? formatAt(s.at.x, s.at.y, s.at.z) : null);
   const next = u.pathname + (u.searchParams.toString() ? `?${u.searchParams}` : '') + u.hash;
   if (next !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', next);
