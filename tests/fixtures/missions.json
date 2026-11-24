@@ -1,0 +1,4 @@
+{"count": 2, "source": "synthetic test fixture", "missions": [
+ {"id": "1", "slug": "test-opening", "name": "Test Opening", "url": "https://example.invalid/1", "chapter": "Prologue", "order": 1, "number": 1, "protagonists": ["Test Hero"], "summary": "A made-up mission for tests.", "steps": [{"title": "Do the first thing", "text": "Step text."}]},
+ {"id": "2", "slug": "test-side-job", "name": "Test Side Job", "url": "https://example.invalid/2", "chapter": "Chapter 1", "order": 2, "optional": true, "missable": true}
+]}

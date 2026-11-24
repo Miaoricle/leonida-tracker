@@ -37,6 +37,7 @@ import { loadVehicles, matchVehicleMarkers } from './data/vehicles';
 import { loadWeapons, matchWeaponMarkers } from './data/weapons';
 import { WeaponsView } from './ui/weapons';
 import { MissionsView } from './ui/missions';
+import { createNavBar } from './ui/navbar';
 import { initPwa, initOfflineChip } from './pwa';
 import { OfflineDownloader } from './offline';
 import { PrefStore, PIN_PX, applyTheme } from './state/prefs';
@@ -295,7 +296,6 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
     vehicles: loadVehiclesLinked,
     locations: (v) => locsOf(vehicleLocs.get(v.id)),
     onOpenMarker: openById,
-    onWeapons: () => void weaponsView.open(),
   });
 
   // ---- weapons database ----
@@ -311,7 +311,6 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
     weapons: loadWeaponsLinked,
     locations: (w) => locsOf(weaponLocs.get(w.id)),
     onOpenMarker: openById,
-    onVehicles: () => void vehiclesView.open(),
   });
 
   const missionsView = new MissionsView(progress);
@@ -321,12 +320,17 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
     progress, groups: data.groups, categories: data.categories,
     markerById: anyMarker, markersOf: (id) => sortedByCat.get(id) ?? [], counts: () => counts,
     onOpenMarker: (m) => openMarker(m), onMyMap: () => mymap.open(), onSettings: () => void settings.open(),
-    onVehicles: () => void vehiclesView.open(),
-    onWeapons: () => void weaponsView.open(),
-    onMissions: () => void missionsView.open(),
   });
 
-  createControls({ map, onSearch: () => searchView.open(), onFilters: () => panel.sheet.toggle('half'), onMenu: () => menu.open(), onVehicles: () => void vehiclesView.open() });
+  createControls({ map, onSearch: () => searchView.open(), onFilters: () => panel.sheet.toggle('half') });
+  // bottom navigation bar (Vehicles / Weapons / Missions as tabs; Menu under "More")
+  const tab = (v: { el: HTMLElement; open: () => Promise<void>; close: () => void }) => ({ el: v.el, open: () => void v.open(), close: () => v.close() });
+  createNavBar([
+    { id: 'map', label: 'Map', icon: 'map' },
+    { id: 'vehicles', label: 'Vehicles', icon: 'directions_car', view: tab(vehiclesView) },
+    { id: 'weapons', label: 'Weapons', icon: 'swords', view: tab(weaponsView) },
+    { id: 'missions', label: 'Missions', icon: 'flag', view: tab(missionsView) },
+  ], () => menu.open());
 
   // ---- deep links ----
   if (link.feature) {

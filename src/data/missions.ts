@@ -16,8 +16,9 @@ export interface Mission {
   summary?: string;
   fields?: { label: string; value: string }[];
   rewards?: string[];
-  steps?: { title: string; text?: string }[];
+  steps?: { title: string; text?: string; images?: { url: string; alt?: string }[] }[];
   image?: string;
+  thumbnail?: string;
 }
 
 export async function loadMissions(): Promise<Mission[]> {

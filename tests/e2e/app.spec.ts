@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 
 const FIX = path.resolve('tests/fixtures');
-const files = ['markers.json', 'categories.json', 'labels.json', 'meta.json'].map((f) => path.join(FIX, f));
+const files = ['markers.json', 'categories.json', 'labels.json', 'meta.json', 'missions.json'].map((f) => path.join(FIX, f));
 
 /** No-token path: first run opens Settings → import the data files → app reloads with the map. */
 async function importFixture(page: Page) {
@@ -17,7 +17,7 @@ async function importFixture(page: Page) {
 
 test('no-token import path loads the map', async ({ page }) => {
   await importFixture(page);
-  await page.getByRole('button', { name: 'Menu' }).click();
+  await page.getByRole('button', { name: 'More' }).click();
   await page.locator('[data-go="settings"]').click();
   await expect(page.locator('.status-line')).toContainText('12 locations');
   await expect(page.locator('.status-line')).toContainText('From an imported file');
@@ -68,4 +68,24 @@ test('offline reload after first visit', async ({ page, context }) => {
   await page.getByRole('button', { name: 'Search' }).click();
   await page.keyboard.type('package c');
   await expect(page.locator('.hit').first()).toContainText('Test package C');
+});
+
+test('bottom bar: Missions tab → tick a mission → back to Map', async ({ page }) => {
+  await importFixture(page);
+  const nav = page.getByRole('navigation', { name: 'Sections' });
+  await nav.getByRole('button', { name: 'Missions' }).click();
+  const view = page.locator('.missions');
+  await expect(view).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Missions' })).toHaveAttribute('aria-current', 'page');
+  await expect(view.locator('.v-head h2')).toContainText('0/2');
+  await view.getByRole('checkbox', { name: 'Test Opening done' }).click();
+  await expect(view.locator('.v-head h2')).toContainText('1/2');
+  await view.getByRole('button', { name: /Test Side Job/ }).click();
+  await expect(view.locator('.ms-b.miss')).toBeVisible();
+  await nav.getByRole('button', { name: 'Map' }).click();
+  await expect(view).toBeHidden();
+  await expect(nav.getByRole('button', { name: 'Map' })).toHaveAttribute('aria-current', 'page');
+  await page.reload();
+  await nav.getByRole('button', { name: 'Missions' }).click();
+  await expect(view.locator('.v-head h2')).toContainText('1/2'); // tick survives a reload
 });

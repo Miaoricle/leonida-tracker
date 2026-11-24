@@ -8,6 +8,7 @@ import { getSetting, setSetting } from '../db';
 import { trapFocus } from './focus';
 import { syncUrl } from '../deeplink';
 import { toast } from './toast';
+import { openViewer } from './viewer';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const HIDE = /^(chapter|rewards|protagonist \(playable\))$/i;
@@ -20,6 +21,7 @@ export class MissionsView {
   private returnFocus: HTMLElement | null = null;
   private current: Mission | null = null;
   private timer = 0;
+  private io: IntersectionObserver;
 
   constructor(private progress: ProgressStore, private load: () => Promise<Mission[]> = loadMissions) {
     this.el = document.createElement('div');
@@ -29,6 +31,19 @@ export class MissionsView {
     this.el.setAttribute('aria-modal', 'true');
     this.el.setAttribute('aria-label', 'Missions');
     document.body.appendChild(this.el);
+    // pictures load only when they scroll into view (list) or a walkthrough step is opened
+    this.io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        const img = e.target as HTMLImageElement;
+        this.io.unobserve(img);
+        void shotUrl(img.dataset.src).then((u) => { if (u) { img.src = u; img.parentElement?.classList.remove('loading'); } else img.parentElement?.classList.add('noimg'); });
+      }
+    }, { rootMargin: '400px 0px' });
+    this.el.addEventListener('toggle', (e) => {
+      const d = e.target as HTMLDetailsElement;
+      if (d.open) d.querySelectorAll<HTMLImageElement>('img[data-src]').forEach((img) => this.io.observe(img));
+    }, true);
     this.el.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
       e.stopPropagation();
@@ -121,12 +136,14 @@ export class MissionsView {
         return `<li class="ms-row${d ? ' done' : ''}">
           <button class="ms-tick" data-tick="${esc(m.slug)}" role="checkbox" aria-checked="${d}" aria-label="${esc(m.name)} done">${glyphSvg('check', 20)}</button>
           <button class="ms-open" data-ms="${esc(m.slug)}">
+            <span class="ms-thumb v-thumb loading"><img alt="" data-src="${esc(m.thumbnail ?? m.image ?? '')}"></span>
             <span class="ms-name">${m.number ? `<span class="ms-n">${m.number}.</span> ` : ''}${esc(m.name)}</span>
             <span class="ms-sub">${esc((m.protagonists ?? []).map((x) => x.split(' ')[0]).join(' & '))}${this.badges(m)}</span>
           </button>
         </li>`;
       }).join('')}</ul></section>`;
     }).join('') : '<p class="v-none muted">No mission matches these filters.</p>';
+    box.querySelectorAll<HTMLImageElement>('img[data-src]').forEach((img) => this.io.observe(img));
   }
 
   // ---------- detail ----------
@@ -150,7 +167,7 @@ export class MissionsView {
         ${m.summary ? `<p class="v-desc">${esc(m.summary)}</p>` : ''}
         ${info.length ? `<h3 class="sec-h">Info</h3><dl class="v-kv">${info.map((f) => `<dt>${esc(f.label)}</dt><dd>${esc(f.value)}</dd>`).join('')}</dl>` : ''}
         ${m.rewards?.length ? `<h3 class="sec-h">Rewards</h3><ul class="ms-rewards">${m.rewards.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
-        ${m.steps?.length ? `<h3 class="sec-h">Walkthrough <small>(${m.steps.length} steps)</small></h3><ol class="ms-steps">${m.steps.map((s) => `<li><details><summary>${esc(s.title)}</summary>${s.text ? s.text.split('\n').map((t) => `<p>${esc(t)}</p>`).join('') : ''}</details></li>`).join('')}</ol>` : ''}
+        ${m.steps?.length ? `<h3 class="sec-h">Walkthrough <small>(${m.steps.length} steps)</small></h3><ol class="ms-steps">${m.steps.map((s) => `<li><details><summary>${esc(s.title)}</summary>${s.text ? s.text.split('\n').map((t) => `<p>${esc(t)}</p>`).join('') : ''}${(s.images ?? []).map((i) => `<button class="ms-shot v-thumb loading" data-full="${esc(i.url)}" aria-label="View picture full screen"><img alt="${esc(i.alt ?? '')}" data-src="${esc(i.url)}"></button>`).join('')}</details></li>`).join('')}</ol>` : ''}
         <div class="card-nav">
           <button class="pill ms-nav" data-ms="${esc(prev?.slug ?? '')}" ${prev ? '' : 'disabled'}>${glyphSvg('chevron_left', 20)} Previous</button>
           <button class="pill ms-nav" data-ms="${esc(next?.slug ?? '')}" ${next ? '' : 'disabled'}>Next ${glyphSvg('chevron_right', 20)}</button>
@@ -188,6 +205,8 @@ export class MissionsView {
       this.renderList();
       return;
     }
+    const full = t.closest<HTMLElement>('[data-full]');
+    if (full) { const img = full.querySelector('img'); if (img?.src) openViewer(img.src, img.alt || 'Mission picture'); return; }
     const tick = t.closest<HTMLElement>('[data-tick]')?.dataset.tick;
     if (tick) { const m = this.list.find((x) => x.slug === tick); if (m) this.toggle(m); return; }
     if (t.closest('.ms-done') && this.current) { this.toggle(this.current); return; }
