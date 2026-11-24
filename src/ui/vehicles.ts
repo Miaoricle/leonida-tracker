@@ -6,6 +6,7 @@ import {
 import { getSetting, setSetting } from '../db';
 import { trapFocus } from './focus';
 import { syncUrl } from '../deeplink';
+import { ViewMemory } from './viewmemory';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const fmtMoney = (n?: number) => (n === undefined ? undefined : `$${n.toLocaleString('en-US')}`);
@@ -34,6 +35,7 @@ export class VehiclesView {
   private io: IntersectionObserver;
   private current: Vehicle | null = null;
   private timer = 0;
+  private mem: ViewMemory;
 
   constructor(private d: VehiclesDeps) {
     this.el = document.createElement('div');
@@ -43,6 +45,7 @@ export class VehiclesView {
     this.el.setAttribute('aria-modal', 'true');
     this.el.setAttribute('aria-label', 'Vehicles');
     document.body.appendChild(this.el);
+    this.mem = new ViewMemory(this.el, () => this.current === null);
     this.io = new IntersectionObserver((entries) => {
       for (const e of entries) {
         if (!e.isIntersecting) continue;
@@ -80,11 +83,14 @@ export class VehiclesView {
     }
     this.el.hidden = false;
     this.release = trapFocus(this.el);
-    const v = slug ? this.list.find((x) => x.slug === slug) : undefined;
-    if (v) this.showDetail(v); else this.showList();
+    // a plain open (tab bar) resumes where you left the tab: the same detail page, or the list at the same spot
+    const resume = !slug && this.mem.resume ? this.list.find((x) => x.slug === this.mem.resume) : undefined;
+    const v = slug ? this.list.find((x) => x.slug === slug) : resume;
+    if (v) this.showDetail(v, !!resume); else this.showList();
   }
 
   close() {
+    this.mem.resume = this.current?.slug ?? null;
     this.el.hidden = true;
     this.current = null;
     this.release?.();
@@ -117,6 +123,7 @@ export class VehiclesView {
       <div class="v-count muted small" aria-live="polite"></div>
       <ul class="v-grid"></ul>`;
     this.renderGrid();
+    this.mem.restoreList('data-v');
   }
 
   private header(title: string, back = false) {
@@ -151,7 +158,8 @@ export class VehiclesView {
   }
 
   // ---------- detail ----------
-  private showDetail(v: Vehicle) {
+  private showDetail(v: Vehicle, resuming = false) {
+    const y = this.mem.enterDetail(v.slug, resuming);
     this.current = v;
     syncUrl({ v: v.slug } );
     const p = price(v), sell = sellValue(v), tr = tracker(v);
@@ -195,8 +203,8 @@ export class VehiclesView {
       if (this.current?.id !== v.id) return;
       if (u) { hero.src = u; hero.parentElement!.classList.remove('loading'); } else hero.parentElement!.classList.add('noimg');
     });
-    this.el.scrollTop = 0;
-    this.el.querySelector<HTMLElement>('.v-back')?.focus();
+    this.el.scrollTop = y;
+    this.el.querySelector<HTMLElement>('.v-back')?.focus({ preventScroll: true });
   }
 
   private locs(v: Vehicle): VehicleLocation[] { return this.d.locations?.(v) ?? []; }

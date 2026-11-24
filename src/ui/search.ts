@@ -17,6 +17,7 @@ export class SearchView {
   readonly el: HTMLElement;
   private input: HTMLInputElement;
   private list: HTMLElement;
+  private last = { q: '', y: 0 };
   private hits: Hit[] = [];
   private release: (() => void) | null = null;
   private returnFocus: HTMLElement | null = null;
@@ -59,10 +60,13 @@ export class SearchView {
     this.input.focus();
     this.input.select();
     this.run();
+    // same search as last time (e.g. back from a result): keep the results where they were
+    if (this.input.value === this.last.q) this.list.scrollTop = this.last.y;
     this.release = trapFocus(this.el);
   }
 
   close() {
+    this.last = { q: this.input.value, y: this.list.scrollTop };
     this.el.hidden = true;
     this.release?.();
     this.returnFocus?.focus?.({ preventScroll: true });

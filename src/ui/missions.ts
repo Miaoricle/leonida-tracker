@@ -7,6 +7,7 @@ import type { ProgressStore } from '../state/progress';
 import { getSetting, setSetting } from '../db';
 import { trapFocus } from './focus';
 import { syncUrl } from '../deeplink';
+import { ViewMemory } from './viewmemory';
 import { toast } from './toast';
 import { openViewer } from './viewer';
 
@@ -21,6 +22,7 @@ export class MissionsView {
   private returnFocus: HTMLElement | null = null;
   private current: Mission | null = null;
   private timer = 0;
+  private mem: ViewMemory;
   private io: IntersectionObserver;
 
   constructor(private progress: ProgressStore, private load: () => Promise<Mission[]> = loadMissions) {
@@ -31,6 +33,7 @@ export class MissionsView {
     this.el.setAttribute('aria-modal', 'true');
     this.el.setAttribute('aria-label', 'Missions');
     document.body.appendChild(this.el);
+    this.mem = new ViewMemory(this.el, () => this.current === null);
     // pictures load only when they scroll into view (list) or a walkthrough step is opened
     this.io = new IntersectionObserver((entries) => {
       for (const e of entries) {
@@ -73,11 +76,14 @@ export class MissionsView {
     }
     this.el.hidden = false;
     this.release = trapFocus(this.el);
-    const m = slug ? this.list.find((x) => x.slug === slug) : undefined;
-    if (m) this.showDetail(m); else this.showList();
+    // a plain open (tab bar) resumes where you left the tab: the same mission, or the list at the same spot
+    const resume = !slug && this.mem.resume ? this.list.find((x) => x.slug === this.mem.resume) : undefined;
+    const m = slug ? this.list.find((x) => x.slug === slug) : resume;
+    if (m) this.showDetail(m, !!resume); else this.showList();
   }
 
   close() {
+    this.mem.resume = this.current?.slug ?? null;
     this.el.hidden = true;
     this.current = null;
     this.release?.();
@@ -100,7 +106,6 @@ export class MissionsView {
 
   // ---------- list ----------
   private showList() {
-    const keepScroll = this.current === null && !this.el.hidden ? this.el.scrollTop : 0; // re-render after a tick
     this.current = null;
     syncUrl({ ms: null });
     if (!this.list.length) {
@@ -119,7 +124,7 @@ export class MissionsView {
       </div>
       <div class="ms-list"></div>`;
     this.renderList();
-    this.el.scrollTop = keepScroll;
+    this.mem.restoreList('data-ms'); // back from a mission, or re-render after a tick: same spot
   }
 
   private renderList() {
@@ -148,7 +153,7 @@ export class MissionsView {
 
   // ---------- detail ----------
   private showDetail(m: Mission, keepScroll = false) {
-    const y = this.el.scrollTop;
+    const y = this.mem.enterDetail(m.slug, keepScroll);
     this.current = m;
     syncUrl({ ms: m.slug });
     const d = this.done(m);
@@ -179,8 +184,8 @@ export class MissionsView {
       if (this.current?.id !== m.id) return;
       if (u) { hero.src = u; hero.parentElement!.classList.remove('loading'); } else hero.parentElement!.remove();
     });
-    this.el.scrollTop = keepScroll ? y : 0;
-    if (!keepScroll) this.el.querySelector<HTMLElement>('.v-back')?.focus();
+    this.el.scrollTop = y;
+    if (!keepScroll) this.el.querySelector<HTMLElement>('.v-back')?.focus({ preventScroll: true });
   }
 
   private toggle(m: Mission) {

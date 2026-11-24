@@ -9,6 +9,7 @@ import type { VehicleLocation } from './vehicles';
 import { getSetting, setSetting } from '../db';
 import { trapFocus } from './focus';
 import { syncUrl } from '../deeplink';
+import { ViewMemory } from './viewmemory';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const fmtMoney = (n?: number) => (n ? `$${n.toLocaleString('en-US')}` : undefined);
@@ -34,6 +35,7 @@ export class WeaponsView {
   private io: IntersectionObserver;
   private current: Weapon | null = null;
   private timer = 0;
+  private mem: ViewMemory;
 
   constructor(private d: WeaponsDeps) {
     this.el = document.createElement('div');
@@ -43,6 +45,7 @@ export class WeaponsView {
     this.el.setAttribute('aria-modal', 'true');
     this.el.setAttribute('aria-label', 'Weapons');
     document.body.appendChild(this.el);
+    this.mem = new ViewMemory(this.el, () => this.current === null);
     this.io = new IntersectionObserver((entries) => {
       for (const e of entries) {
         if (!e.isIntersecting) continue;
@@ -83,11 +86,14 @@ export class WeaponsView {
     }
     this.el.hidden = false;
     this.release = trapFocus(this.el);
-    const w = slug ? this.list.find((x) => x.slug === slug) : undefined;
-    if (w) this.showDetail(w); else this.showList();
+    // a plain open (tab bar) resumes where you left the tab: the same detail page, or the list at the same spot
+    const resume = !slug && this.mem.resume ? this.list.find((x) => x.slug === this.mem.resume) : undefined;
+    const w = slug ? this.list.find((x) => x.slug === slug) : resume;
+    if (w) this.showDetail(w, !!resume); else this.showList();
   }
 
   close() {
+    this.mem.resume = this.current?.slug ?? null;
     this.el.hidden = true;
     this.current = null;
     this.release?.();
@@ -120,6 +126,7 @@ export class WeaponsView {
       <div class="v-count muted small" aria-live="polite"></div>
       <ul class="v-grid"></ul>`;
     this.renderGrid();
+    this.mem.restoreList('data-w');
   }
 
   private header(title: string, back = false) {
@@ -155,7 +162,8 @@ export class WeaponsView {
   }
 
   // ---------- detail ----------
-  private showDetail(w: Weapon) {
+  private showDetail(w: Weapon, resuming = false) {
+    const y = this.mem.enterDetail(w.slug, resuming);
     this.current = w;
     syncUrl({ w: w.slug });
     const locs = this.locs(w);
@@ -198,8 +206,8 @@ export class WeaponsView {
       if (this.current?.id !== w.id) return;
       if (u) { hero.src = u; hero.parentElement!.classList.remove('loading'); } else hero.parentElement!.classList.add('noimg');
     });
-    this.el.scrollTop = 0;
-    this.el.querySelector<HTMLElement>('.v-back')?.focus();
+    this.el.scrollTop = y;
+    this.el.querySelector<HTMLElement>('.v-back')?.focus({ preventScroll: true });
   }
 
   private onClick(e: Event) {
