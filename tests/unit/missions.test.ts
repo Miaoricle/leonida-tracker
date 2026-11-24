@@ -21,6 +21,11 @@ describe('missions', () => {
     expect(queryMissions(all, { hideDone: true }, isDone).map((x) => x.name)).not.toContain('Intro');
     expect(queryMissions(all, { text: 'lucia' }, isDone).map((x) => x.name)).toEqual(['Big One']);
   });
+  it('no-spoilers search ignores hidden details of missions not done yet', () => {
+    const withGiver = [...all, m({ name: 'Secret Meet', chapter: 'Chapter 2', fields: [{ label: 'Mission Giver', value: 'Mystery Boss' }] })];
+    expect(queryMissions(withGiver, { text: 'mystery' }, isDone).map((x) => x.name)).toEqual(['Secret Meet']);
+    expect(queryMissions(withGiver, { text: 'mystery', noSpoilers: true }, isDone)).toEqual([]);
+  });
   it('counts progress per chapter in story order', () => {
     const p = missionProgress(all, isDone);
     expect(p.done).toBe(1);

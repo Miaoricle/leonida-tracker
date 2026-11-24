@@ -78,6 +78,14 @@ test('bottom bar: Missions tab → tick a mission → back to Map', async ({ pag
   await expect(view).toBeVisible();
   await expect(nav.getByRole('button', { name: 'Missions' })).toHaveAttribute('aria-current', 'page');
   await expect(view.locator('.v-head h2')).toContainText('0/2');
+  // no-spoilers mode (default): walkthrough hidden until completed or revealed
+  await expect(view.locator('.ms-nospoil')).toBeVisible();
+  await view.getByRole('button', { name: /Test Opening/ }).click();
+  await expect(view.locator('.ms-spoilbox')).toBeVisible();
+  await expect(view.locator('.ms-steps')).toHaveCount(0);
+  await view.getByRole('button', { name: 'Show for this mission' }).click();
+  await expect(view.locator('.ms-steps')).toBeVisible();
+  await view.locator('.v-back').click();
   await view.getByRole('checkbox', { name: 'Test Opening done' }).click();
   await expect(view.locator('.v-head h2')).toContainText('1/2');
   await view.getByRole('button', { name: /Test Side Job/ }).click();

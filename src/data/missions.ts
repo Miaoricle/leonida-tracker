@@ -34,7 +34,7 @@ export async function loadMissions(): Promise<Mission[]> {
 /** Progress key for a mission (stored with found map markers, so it's per profile and in backups). */
 export const missionKey = (m: Mission) => `mission-${m.slug}`;
 
-export interface MissionQuery { text?: string; kind?: 'all' | 'main' | 'optional' | 'missable'; hideDone?: boolean }
+export interface MissionQuery { text?: string; kind?: 'all' | 'main' | 'optional' | 'missable'; hideDone?: boolean; /** search only spoiler-free text */ noSpoilers?: boolean }
 
 const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
@@ -46,7 +46,7 @@ export function queryMissions(all: Mission[], q: MissionQuery, isDone: (m: Missi
     (q.kind !== 'optional' || !!m.optional) &&
     (q.kind !== 'missable' || !!m.missable) &&
     (!q.hideDone || !isDone(m)) &&
-    (!t || norm(`${m.name} ${m.summary ?? ''} ${(m.protagonists ?? []).join(' ')} ${m.fields?.find((f) => /giver/i.test(f.label))?.value ?? ''}`).includes(t)))
+    (!t || norm(`${m.name} ${m.summary ?? ''} ${(m.protagonists ?? []).join(' ')} ${q.noSpoilers && !isDone(m) ? '' : m.fields?.find((f) => /giver/i.test(f.label))?.value ?? ''}`).includes(t)))
     .sort((a, b) => a.order - b.order);
 }
 

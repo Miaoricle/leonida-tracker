@@ -109,3 +109,14 @@
 .ms-open .ms-thumb { grid-row: span 2; width: 96px; margin: 0; border-radius: 8px; overflow: hidden; }
 .ms-row.done .ms-thumb { opacity: 0.5; }
 .ms-steps .ms-shot { display: block; width: 100%; max-width: 560px; padding: 0; border: 0; border-radius: 10px; overflow: hidden; margin: 0 0 10px; cursor: zoom-in; }
+/* no-spoilers mode */
+.ms-opts { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.ms-nospoil { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(46, 157, 87, 0.14); font-size: 13.5px; line-height: 1.45; }
+.ms-nospoil .ms { flex: none; margin-top: 1px; color: #4caf50; }
+.ms-safe { display: grid; place-items: center; aspect-ratio: 16 / 9; font: 800 22px/1 var(--font); color: rgba(255, 255, 255, 0.92); background: linear-gradient(135deg, #34495e, #1c2833); }
+.ms-safe.jason { background: linear-gradient(135deg, #1e6fa8, #12324f); }
+.ms-safe.lucia { background: linear-gradient(135deg, #c2185b, #4a1030); }
+.ms-safe.both { background: linear-gradient(135deg, #1e6fa8, #c2185b); }
+.ms-spoilbox { display: grid; justify-items: start; gap: 8px; padding: 14px; border-radius: 12px; border: 1px dashed rgba(var(--ov), 0.25); background: rgba(var(--ov), 0.04); }
+.ms-spoilbox > .ms { color: var(--muted); }
+.ms-spoilbox p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
