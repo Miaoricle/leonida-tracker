@@ -1,18 +1,16 @@
-// Generates the app icons (an original map-pin + check glyph) as SVG + PNG. Run: node scripts/app-icons.mjs
+// Generates the app icons (original "VI" lettering) as SVG + PNG. Run: node scripts/app-icons.mjs
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 const OUT = 'public/icons';
-// pin + check, drawn in a 512 box; `scale` shrinks it for the maskable safe zone
+// original "VI" lettering in a sunset gradient (GTA VI style, not Rockstar's logo); `scale` shrinks it for the maskable safe zone
 const glyph = (scale = 1) => `
-  <g transform="translate(256 256) scale(${scale}) translate(-256 -256)">
-    <path d="M256 70c-84 0-150 64-150 146 0 104 128 222 140 233a14 14 0 0 0 20 0c12-11 140-129 140-233 0-82-66-146-150-146z"
-          fill="url(#g)" stroke="#fff" stroke-width="14"/>
-    <path d="M190 214l46 46 90-92" fill="none" stroke="#fff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(256 256) scale(${scale}) translate(-265 -260)">
+    <path d="M90 128h78l54 190 54-190h78l-92 264h-80z M372 128h68v264h-68z" fill="url(#g)" stroke="#fff" stroke-width="10" stroke-linejoin="round"/>
   </g>`;
 const svg = ({ rounded, scale }) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16324a"/><stop offset="1" stop-color="#0b1620"/></linearGradient>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3fbf74"/><stop offset="1" stop-color="#1f7a45"/></linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a1240"/><stop offset="1" stop-color="#0b1620"/></linearGradient>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffc15e"/><stop offset="0.45" stop-color="#ff4f8b"/><stop offset="1" stop-color="#8a3ffc"/></linearGradient>
   </defs>
   <rect width="512" height="512" ${rounded ? 'rx="112"' : ''} fill="url(#bg)"/>
   ${glyph(scale)}
