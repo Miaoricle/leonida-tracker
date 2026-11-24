@@ -15,6 +15,8 @@ export async function readDataFiles(files: FileList | File[]): Promise<Partial<R
       Object.assign(out, { markers: j.markers, categories: j.categories, labels: j.labels, meta: j.meta });
     } else if (name.startsWith('vehicles')) out.vehicles = json;
     else if (name.startsWith('icons')) out.icons = json;
+    else if (name.startsWith('weapons')) out.weapons = json;
+    else if (name.startsWith('missions')) out.missions = json;
     else if (name.startsWith('markers') || Array.isArray(json) && (json as { category?: unknown }[])[0]?.category !== undefined) out.markers = json;
     else if (name.startsWith('categories') || (json as { categories?: unknown })?.categories) out.categories = json;
     else if (name.startsWith('labels') || Array.isArray(json)) out.labels = json;

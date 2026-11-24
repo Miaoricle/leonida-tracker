@@ -113,17 +113,22 @@ export function vehicleKey(s: string): string {
  * in it as whole words; the longest such name wins ("Coquette D10" beats "Coquette"). Returns vehicle id -> marker ids.
  */
 export function matchVehicleMarkers(vehicles: Vehicle[], markers: { id: string; name: string; category: string }[]): Map<string, string[]> {
-  const keys: [string, Vehicle][] = [];
-  for (const v of vehicles) {
-    for (const k of new Set([vehicleKey(v.name), v.manufacturer ? vehicleKey(`${v.manufacturer} ${v.name}`) : ''])) if (k.length >= 3) keys.push([k, v]);
+  return matchNamedMarkers(vehicles, markers, VEHICLE_MARKER_CATS);
+}
+
+/** Generic name matcher (vehicles, weapons): item id -> ids of markers in `cats` that name it. */
+export function matchNamedMarkers(items: { id: string; name: string; manufacturer?: string }[], markers: { id: string; name: string; category: string }[], cats: string[]): Map<string, string[]> {
+  const keys: [string, string][] = [];
+  for (const v of items) {
+    for (const k of new Set([vehicleKey(v.name), v.manufacturer ? vehicleKey(`${v.manufacturer} ${v.name}`) : ''])) if (k.length >= 3) keys.push([k, v.id]);
   }
   keys.sort((a, b) => b[0].length - a[0].length);
   const out = new Map<string, string[]>();
   for (const m of markers) {
-    if (!VEHICLE_MARKER_CATS.includes(m.category)) continue;
+    if (!cats.includes(m.category)) continue;
     const mk = ` ${vehicleKey(m.name)} `;
     const hit = keys.find(([k]) => mk.includes(` ${k} `));
-    if (hit) out.set(hit[1].id, [...(out.get(hit[1].id) ?? []), m.id]);
+    if (hit) out.set(hit[1], [...(out.get(hit[1]) ?? []), m.id]);
   }
   return out;
 }

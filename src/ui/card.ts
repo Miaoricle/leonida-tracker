@@ -21,6 +21,8 @@ export interface CardDeps {
   /** vehicle shown by this marker (standout vehicles etc.): opens its page in the Vehicles tab */
   vehicleFor?: (m: Marker) => string | undefined;
   onVehicle?: (slug: string) => void;
+  weaponFor?: (m: Marker) => string | undefined;
+  onWeapon?: (slug: string) => void;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -81,6 +83,7 @@ export class MarkerCard {
           <button class="act share" aria-label="Share link">${glyphSvg('share', 22)}<span>Share</span></button>
           <button class="act zoom" aria-label="Zoom in">${glyphSvg('zoom_in', 22)}<span>Zoom</span></button>
           ${this.d.vehicleFor?.(m) ? `<button class="act veh" aria-label="Vehicle details">${glyphSvg('directions_car', 22)}<span>Vehicle</span></button>` : ''}
+          ${this.d.weaponFor?.(m) ? `<button class="act wpn" aria-label="Weapon details">${glyphSvg('swords', 22)}<span>Weapon</span></button>` : ''}
         </div>
         ${img ? `<button class="card-img" aria-label="View image full screen"><img decoding="async" alt="" src="${esc(img)}"></button>` : ''}
         ${shot ? '<button class="card-img loading" aria-label="View screenshot full screen"><img decoding="async" alt=""></button>' : ''}
@@ -136,6 +139,9 @@ export class MarkerCard {
     } else if (t.closest('.share')) {
       // personal markers only exist on this device: share the spot instead
       void shareLink(m.source === 'user' ? appUrl({ at: `${Math.round(m.x)},${Math.round(m.y)},6` }) : appUrl({ m: m.id }), m.name);
+    } else if (t.closest('.wpn')) {
+      const slug = this.d.weaponFor?.(m);
+      if (slug) this.d.onWeapon?.(slug);
     } else if (t.closest('.veh')) {
       const slug = this.d.vehicleFor?.(m);
       if (slug) this.d.onVehicle?.(slug);

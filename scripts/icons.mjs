@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DIR = path.join(ROOT, 'node_modules/@material-symbols/svg-400/rounded');
-const UI = ['check', 'add', 'remove', 'search', 'tune', 'fullscreen', 'fullscreen_exit', 'info', 'close', 'star', 'share', 'chevron_right', 'chevron_left', 'zoom_in', 'my_location', 'settings', 'bar_chart', 'map', 'location_on', 'visibility', 'visibility_off', 'menu', 'person', 'restart_alt', 'edit', 'delete', 'link', 'image', 'add_location', 'settings', 'bookmark'];
+const UI = ['check', 'add', 'remove', 'search', 'tune', 'fullscreen', 'fullscreen_exit', 'info', 'close', 'star', 'share', 'chevron_right', 'chevron_left', 'zoom_in', 'my_location', 'settings', 'bar_chart', 'map', 'location_on', 'visibility', 'visibility_off', 'menu', 'person', 'restart_alt', 'edit', 'delete', 'link', 'image', 'add_location', 'settings', 'bookmark', 'flag', 'directions_car', 'swords'];
 const src = fs.readFileSync(path.join(ROOT, 'src/icons/mapping.ts'), 'utf8');
 const names = new Set([...src.matchAll(/:\s*'([a-z0-9_]+)'/g)].map((m) => m[1]).concat(UI, [src.match(/FALLBACK_ICON = '([a-z0-9_]+)'/)[1]]));
 const out = {};

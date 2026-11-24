@@ -1,7 +1,7 @@
-// Deep links: ?feature=<category> · ?m=<markerId> · ?at=x,y,zoom ("Shared spot"). The URL is kept in sync with
+// Deep links: ?feature=<category> · ?m=<markerId> · ?v=<vehicle> · ?w=<weapon> · ?ms=<mission> · ?at=x,y,zoom ("Shared spot"). The URL is kept in sync with
 // history.replaceState so the address bar (and a reload) always reflects what's open.
 
-export interface LinkState { feature?: string | null; m?: string | null; v?: string | null; at?: { x: number; y: number; z: number } | null }
+export interface LinkState { feature?: string | null; m?: string | null; v?: string | null; w?: string | null; ms?: string | null; at?: { x: number; y: number; z: number } | null }
 
 export function parseLink(search = location.search): LinkState {
   const p = new URLSearchParams(search);
@@ -9,6 +9,8 @@ export function parseLink(search = location.search): LinkState {
   if (p.get('feature')) out.feature = p.get('feature');
   if (p.get('m')) out.m = p.get('m');
   if (p.get('v')) out.v = p.get('v');
+  if (p.get('w')) out.w = p.get('w');
+  if (p.get('ms')) out.ms = p.get('ms');
   const at = p.get('at')?.split(',').map(Number);
   if (at && at.length >= 2 && at.slice(0, 2).every(Number.isFinite)) out.at = { x: at[0], y: at[1], z: Number.isFinite(at[2]) ? at[2] : 5 };
   return out;
@@ -25,6 +27,8 @@ export function syncUrl(s: LinkState): void {
   if ('feature' in s) set('feature', s.feature);
   if ('m' in s) set('m', s.m);
   if ('v' in s) set('v', s.v);
+  if ('w' in s) set('w', s.w);
+  if ('ms' in s) set('ms', s.ms);
   if ('at' in s) set('at', s.at ? formatAt(s.at.x, s.at.y, s.at.z) : null);
   const next = u.pathname + (u.searchParams.toString() ? `?${u.searchParams}` : '') + u.hash;
   if (next !== location.pathname + location.search + location.hash) history.replaceState(history.state, '', next);

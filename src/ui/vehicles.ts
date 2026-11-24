@@ -21,6 +21,8 @@ export interface VehiclesDeps {
   locations?: (v: Vehicle) => VehicleLocation[];
   /** open a map marker; true when it exists */
   onOpenMarker?: (id: string) => boolean;
+  /** switch to the Weapons tab */
+  onWeapons?: () => void;
 }
 
 export class VehiclesView {
@@ -121,6 +123,7 @@ export class VehiclesView {
     return `<header class="v-head">
       ${back ? `<button class="icon-btn v-back" aria-label="Back to list">${glyphSvg('chevron_left', 26)}</button>` : ''}
       <h2>${title}</h2>
+      ${!back && this.d.onWeapons ? `<button class="icon-btn v-switch" aria-label="Weapons" title="Weapons">${glyphSvg('swords', 24)}</button>` : ''}
       <button class="icon-btn v-close" aria-label="Close vehicles">${glyphSvg('close', 24)}</button>
     </header>`;
   }
@@ -202,6 +205,7 @@ export class VehiclesView {
     const t = e.target as HTMLElement;
     if (t.closest('.v-close')) return this.close();
     if (t.closest('.v-back')) return this.showList();
+    if (t.closest('.v-switch')) { this.close(); this.d.onWeapons?.(); return; }
     const type = t.closest<HTMLElement>('[data-type]')?.dataset.type as VehicleQuery['type'];
     if (type) {
       this.q.type = type;

@@ -34,6 +34,9 @@ import { parseLink, syncUrl, formatAt } from './deeplink';
 import { glyphSvg, clearPinCache, setBlipIcons } from './icons/pin';
 import { VehiclesView } from './ui/vehicles';
 import { loadVehicles, matchVehicleMarkers } from './data/vehicles';
+import { loadWeapons, matchWeaponMarkers } from './data/weapons';
+import { WeaponsView } from './ui/weapons';
+import { MissionsView } from './ui/missions';
 import { initPwa, initOfflineChip } from './pwa';
 import { OfflineDownloader } from './offline';
 import { PrefStore, PIN_PX, applyTheme } from './state/prefs';
@@ -171,6 +174,8 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
   // vehicles <-> map markers (filled once the vehicle list is read from the cache)
   let vehicleLocs = new Map<string, string[]>();
   let vehicleOfMarker = new Map<string, string>();
+  let weaponLocs = new Map<string, string[]>();
+  let weaponOfMarker = new Map<string, string>();
   const card = new MarkerCard({
     progress,
     category: (id) => catById.get(id),
@@ -183,6 +188,8 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
     onDelete: (m) => void deletePersonal(m as PersonalMarker),
     vehicleFor: (m) => vehicleOfMarker.get(m.id),
     onVehicle: (slug) => void vehiclesView.open(slug),
+    weaponFor: (m) => weaponOfMarker.get(m.id),
+    onWeapon: (slug) => void weaponsView.open(slug),
   });
 
   function focus(m: Marker, zoom: number | null) {
@@ -268,6 +275,14 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
   });
 
   // ---- vehicles database ----
+  const toLoc = (id: string) => {
+    const mk = markerById.get(id);
+    if (!mk) return undefined;
+    const c = catById.get(mk.category);
+    return { id: mk.id, name: mk.name, category: mk.category, catName: c?.name ?? '', color: c?.color ?? '#888', found: progress.isFound(mk.id) };
+  };
+  const locsOf = (ids: string[] | undefined) => (ids ?? []).map(toLoc).filter((l): l is NonNullable<typeof l> => !!l);
+  const openById = (id: string) => { const mk = markerById.get(id); if (mk) openMarker(mk); return !!mk; };
   const loadVehiclesLinked = async () => {
     const vs = await loadVehicles();
     vehicleLocs = matchVehicleMarkers(vs, data.markers);
@@ -278,12 +293,28 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
   void loadVehiclesLinked().catch(() => {});
   const vehiclesView = new VehiclesView({
     vehicles: loadVehiclesLinked,
-    locations: (v) => (vehicleLocs.get(v.id) ?? []).map((id) => markerById.get(id)).filter((m): m is Marker => !!m).map((m) => {
-      const c = catById.get(m.category);
-      return { id: m.id, name: m.name, category: m.category, catName: c?.name ?? '', color: c?.color ?? '#888', found: progress.isFound(m.id) };
-    }),
-    onOpenMarker: (id) => { const m = markerById.get(id); if (m) openMarker(m); return !!m; },
+    locations: (v) => locsOf(vehicleLocs.get(v.id)),
+    onOpenMarker: openById,
+    onWeapons: () => void weaponsView.open(),
   });
+
+  // ---- weapons database ----
+  const loadWeaponsLinked = async () => {
+    const ws = await loadWeapons();
+    weaponLocs = matchWeaponMarkers(ws, data.markers);
+    const slug = new Map(ws.map((w) => [w.id, w.slug]));
+    weaponOfMarker = new Map([...weaponLocs].flatMap(([wid, ids]) => ids.map((id) => [id, slug.get(wid)!] as [string, string])));
+    return ws;
+  };
+  void loadWeaponsLinked().catch(() => {});
+  const weaponsView = new WeaponsView({
+    weapons: loadWeaponsLinked,
+    locations: (w) => locsOf(weaponLocs.get(w.id)),
+    onOpenMarker: openById,
+    onVehicles: () => void vehiclesView.open(),
+  });
+
+  const missionsView = new MissionsView(progress);
 
   const mymap = new MyMapView({ progress, personal, category: (id) => catById.get(id), marker: anyMarker, onOpen: (m) => openMarker(m) });
   const menu = new Menu({
@@ -291,6 +322,8 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
     markerById: anyMarker, markersOf: (id) => sortedByCat.get(id) ?? [], counts: () => counts,
     onOpenMarker: (m) => openMarker(m), onMyMap: () => mymap.open(), onSettings: () => void settings.open(),
     onVehicles: () => void vehiclesView.open(),
+    onWeapons: () => void weaponsView.open(),
+    onMissions: () => void missionsView.open(),
   });
 
   createControls({ map, onSearch: () => searchView.open(), onFilters: () => panel.sheet.toggle('half'), onMenu: () => menu.open(), onVehicles: () => void vehiclesView.open() });
@@ -302,6 +335,8 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
   }
   applyFilters(true);
   if (link.v) void vehiclesView.open(link.v);
+  else if (link.w) void weaponsView.open(link.w);
+  else if (link.ms) void missionsView.open(link.ms);
   if (link.m) {
     const m = markerById.get(link.m);
     if (m) openMarker(m);

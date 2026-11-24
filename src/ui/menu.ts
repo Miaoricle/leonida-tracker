@@ -16,6 +16,8 @@ export interface MenuDeps {
   onMyMap?: () => void;
   onSettings?: () => void;
   onVehicles?: () => void;
+  onWeapons?: () => void;
+  onMissions?: () => void;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -56,6 +58,8 @@ export class Menu {
       <ul class="menu">
         <li><button data-go="mymap">${glyphSvg('bookmark', 22)}<span>My Map<small>Personal markers, favourites, notes</small></span></button></li>
         <li><button data-go="vehicles">${glyphSvg('directions_car', 22)}<span>Vehicles<small>All GTA 6 vehicles: stats, price, tracker</small></span></button></li>
+        <li><button data-go="weapons">${glyphSvg('swords', 22)}<span>Weapons<small>All GTA 6 weapons: stats, price, where to get</small></span></button></li>
+        <li><button data-go="missions">${glyphSvg('flag', 22)}<span>Missions<small>Story mission checklist &amp; walkthroughs</small></span></button></li>
         <li><button data-go="stats">${glyphSvg('bar_chart', 22)}<span>Stats</span></button></li>
         <li><button data-go="profiles">${glyphSvg('person', 22)}<span>Profiles<small>${esc(p.name)}</small></span></button></li>
         <li><button data-go="reset">${glyphSvg('restart_alt', 22)}<span>Reset progress</span></button></li>
@@ -69,6 +73,8 @@ export class Menu {
       if (go === 'reset') void this.reset();
       if (go === 'about') { this.sheet.close(); this.about.open('half'); }
       if (go === 'vehicles') { this.sheet.close(); this.d.onVehicles?.(); }
+      if (go === 'weapons') { this.sheet.close(); this.d.onWeapons?.(); }
+      if (go === 'missions') { this.sheet.close(); this.d.onMissions?.(); }
       if (go === 'mymap') { this.sheet.close(); this.d.onMyMap?.(); }
       if (go === 'settings') { this.sheet.close(); this.d.onSettings?.(); }
     });

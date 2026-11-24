@@ -80,7 +80,7 @@ export async function checkForUpdates(c: RepoConfig): Promise<UpdateResult> {
   if (!meta && hasData) {
     // markers unchanged; screenshots and vehicles are synced separately, so check those too (cheap 304s)
     let side = false;
-    for (const f of ['images', 'vehicles', 'icons'] as const) {
+    for (const f of ['images', 'vehicles', 'icons', 'weapons', 'missions'] as const) {
       const r = await fetchFile(c, f, await etag(f)).catch(() => null);
       if (r) { side = true; await db.dataCache.put({ key: f, json: r.json, etag: r.etag, fetchedAt: new Date().toISOString() }); }
     }
@@ -89,7 +89,7 @@ export async function checkForUpdates(c: RepoConfig): Promise<UpdateResult> {
   const files: Partial<Record<DataFile, unknown>> = {};
   const etags: Partial<Record<DataFile, string>> = {};
   if (meta) { files.meta = meta.json; etags.meta = meta.etag; }
-  for (const f of ['markers', 'categories', 'labels', 'images', 'vehicles', 'icons'] as const) {
+  for (const f of ['markers', 'categories', 'labels', 'images', 'vehicles', 'icons', 'weapons', 'missions'] as const) {
     const r = await fetchFile(c, f, hasData ? await etag(f) : undefined);
     if (r) { files[f] = r.json; etags[f] = r.etag; }
   }
