@@ -25,3 +25,13 @@ export async function loadDataset(): Promise<Dataset | null> {
   if (!markers || !cats) return null;
   return { markers, groups: cats.groups, categories: cats.categories, labels: labels ?? [], meta };
 }
+
+/** The in-game blip pictures (icons.json) from the cache, or dev-data in `vite dev`; undefined when not available. */
+export async function loadIcons(): Promise<unknown> {
+  const { db } = await import('../db');
+  const cached = (await db.dataCache.get('icons'))?.json;
+  if (cached) return cached;
+  if (!import.meta.env.DEV) return undefined;
+  const r = await fetch(`${import.meta.env.BASE_URL}dev-data/icons.json`).catch(() => null);
+  return r?.ok ? r.json() : undefined;
+}

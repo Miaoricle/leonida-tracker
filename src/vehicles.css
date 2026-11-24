@@ -62,3 +62,12 @@
 .chip-btn { border: 0; border-radius: 14px; padding: 6px 12px; min-height: 32px; background: rgba(79, 195, 247, 0.18); color: var(--fg); font: 600 13px var(--font); cursor: pointer; }
 .chip-btn.static { background: rgba(var(--ov), 0.08); cursor: default; }
 .v-map { margin-top: 2px; }
+
+/* where to find it (map markers for this vehicle) */
+.v-locs { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 2px; }
+.v-locs .hit { width: 100%; }
+.v-locs .hit > .ms:last-child { margin-left: auto; opacity: 0.6; flex: none; }
+.v-noloc { margin: 4px 0 0; }
+.v-pin { display: inline-flex; align-items: center; gap: 1px; color: var(--accent, #4fc3f7); font-weight: 600; }
+.v-pin .ms { display: inline-block; }
+.v-type { flex-wrap: wrap; }

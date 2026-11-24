@@ -10,7 +10,7 @@ import { addLabels } from './map/labels';
 import { MarkerLayer } from './map/markers';
 import { PersonalLayer } from './map/personal-layer';
 import { toLatLng, toGame } from './map/crs';
-import { loadDataset } from './data/load';
+import { loadDataset, loadIcons } from './data/load';
 import { autoCheckDue, checkForUpdates, describeUpdate, repoConfig, type UpdateResult } from './data/store';
 import type { Category, Dataset, Label, Marker } from './data/types';
 import { getSetting, requestPersistence, type PersonalMarker } from './db';
@@ -31,9 +31,9 @@ import { dialog } from './ui/dialog';
 import { toast } from './ui/toast';
 import { appUrl, copyText, shareLink } from './ui/share';
 import { parseLink, syncUrl, formatAt } from './deeplink';
-import { glyphSvg, clearPinCache } from './icons/pin';
+import { glyphSvg, clearPinCache, setBlipIcons } from './icons/pin';
 import { VehiclesView } from './ui/vehicles';
-import { loadVehicles, type Vehicle } from './data/vehicles';
+import { loadVehicles, matchVehicleMarkers } from './data/vehicles';
 import { initPwa, initOfflineChip } from './pwa';
 import { OfflineDownloader } from './offline';
 import { PrefStore, PIN_PX, applyTheme } from './state/prefs';
@@ -69,7 +69,8 @@ async function boot() {
   const ranges: TileRanges = await (await fetch(`${import.meta.env.BASE_URL}tiles/ranges.json`)).json();
   const map = createMap(el, ranges);
   el.classList.toggle('vivid', prefs.value.vividMap);
-  const [data, progress] = await Promise.all([loadDataset(), initProgress()]);
+  const [data, progress, icons] = await Promise.all([loadDataset(), initProgress(), loadIcons().catch(() => undefined)]);
+  setBlipIcons(icons);
   const link = parseLink();
 
   const saved = readSavedView();
@@ -167,6 +168,9 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
   });
 
   // ---- marker card ----
+  // vehicles <-> map markers (filled once the vehicle list is read from the cache)
+  let vehicleLocs = new Map<string, string[]>();
+  let vehicleOfMarker = new Map<string, string>();
   const card = new MarkerCard({
     progress,
     category: (id) => catById.get(id),
@@ -177,6 +181,8 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
     photoUrl: (m) => personal.photoUrl(m as PersonalMarker),
     onEdit: (m) => void editPersonal(m as PersonalMarker),
     onDelete: (m) => void deletePersonal(m as PersonalMarker),
+    vehicleFor: (m) => vehicleOfMarker.get(m.id),
+    onVehicle: (slug) => void vehiclesView.open(slug),
   });
 
   function focus(m: Marker, zoom: number | null) {
@@ -262,16 +268,21 @@ async function runApp(map: L.Map, data: Dataset, progress: ProgressStore, settin
   });
 
   // ---- vehicles database ----
-  const vnorm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  const vehicleMarkers = data.markers.filter((m) => /vehicle/.test(m.category));
-  const markerForVehicle = (v: Vehicle) => {
-    const n = vnorm(v.name);
-    return vehicleMarkers.find((m) => vnorm(m.name) === n) ?? vehicleMarkers.find((m) => vnorm(m.name).endsWith(` ${n}`));
+  const loadVehiclesLinked = async () => {
+    const vs = await loadVehicles();
+    vehicleLocs = matchVehicleMarkers(vs, data.markers);
+    const slug = new Map(vs.map((v) => [v.id, v.slug]));
+    vehicleOfMarker = new Map([...vehicleLocs].flatMap(([vid, ids]) => ids.map((id) => [id, slug.get(vid)!] as [string, string])));
+    return vs;
   };
+  void loadVehiclesLinked().catch(() => {});
   const vehiclesView = new VehiclesView({
-    vehicles: loadVehicles,
-    canShowOnMap: (v) => !!markerForVehicle(v),
-    onShowOnMap: (v) => { const m = markerForVehicle(v); if (m) openMarker(m); return !!m; },
+    vehicles: loadVehiclesLinked,
+    locations: (v) => (vehicleLocs.get(v.id) ?? []).map((id) => markerById.get(id)).filter((m): m is Marker => !!m).map((m) => {
+      const c = catById.get(m.category);
+      return { id: m.id, name: m.name, category: m.category, catName: c?.name ?? '', color: c?.color ?? '#888', found: progress.isFound(m.id) };
+    }),
+    onOpenMarker: (id) => { const m = markerById.get(id); if (m) openMarker(m); return !!m; },
   });
 
   const mymap = new MyMapView({ progress, personal, category: (id) => catById.get(id), marker: anyMarker, onOpen: (m) => openMarker(m) });

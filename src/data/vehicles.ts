@@ -63,9 +63,9 @@ export function sortValue(v: Vehicle, key: SortKey): number | undefined {
   return undefined;
 }
 
-export interface VehicleQuery { text?: string; sort: SortKey; cls?: string; maker?: string; type?: 'all' | 'regular' | 'standout' }
+export interface VehicleQuery { text?: string; sort: SortKey; cls?: string; maker?: string; type?: 'all' | 'regular' | 'standout' | 'onmap'; onMap?: (v: Vehicle) => boolean }
 
-const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 /** Pure: filter + sort. Vehicles without a value for the sort key go last (keeps "Cheapest" honest). */
 export function queryVehicles(all: Vehicle[], q: VehicleQuery): Vehicle[] {
@@ -75,6 +75,7 @@ export function queryVehicles(all: Vehicle[], q: VehicleQuery): Vehicle[] {
     (!q.maker || v.manufacturer === q.maker) &&
     (q.type !== 'regular' || !v.standoutSet) &&
     (q.type !== 'standout' || !!v.standoutSet) &&
+    (q.type !== 'onmap' || !!q.onMap?.(v)) &&
     (!t || norm(`${v.name} ${v.manufacturer ?? ''} ${v.realLife ?? ''} ${v.class.join(' ')} ${v.standoutSet ?? ''}`).includes(t)));
   if (q.sort === 'name') return out.sort((a, b) => a.name.localeCompare(b.name));
   const dir = q.sort === 'price-asc' ? 1 : -1;
@@ -95,4 +96,34 @@ export function counts(all: Vehicle[]) {
   }
   const sorted = (m: Map<string, number>) => [...m].sort((a, b) => a[0].localeCompare(b[0]));
   return { classes: sorted(classes), makers: sorted(makers) };
+}
+
+// ---------- vehicles <-> map markers ----------
+/** Map categories whose markers name a vehicle. */
+export const VEHICLE_MARKER_CATS = ['standout-vehicle', 'vehicle-spawn', 'vehicle-request'];
+
+/** "Annis '95 Hellion (Moses' request)" -> "annis hellion": no notes in brackets, no '95-style years, no accents/punctuation. */
+export function vehicleKey(s: string): string {
+  return s.replace(/\([^)]*\)/g, ' ').replace(/[’']\d{2}\b/g, ' ').replace(/[’']/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/**
+ * Pure: which vehicle each map marker shows. A marker matches the vehicle whose name (or maker + name) appears
+ * in it as whole words; the longest such name wins ("Coquette D10" beats "Coquette"). Returns vehicle id -> marker ids.
+ */
+export function matchVehicleMarkers(vehicles: Vehicle[], markers: { id: string; name: string; category: string }[]): Map<string, string[]> {
+  const keys: [string, Vehicle][] = [];
+  for (const v of vehicles) {
+    for (const k of new Set([vehicleKey(v.name), v.manufacturer ? vehicleKey(`${v.manufacturer} ${v.name}`) : ''])) if (k.length >= 3) keys.push([k, v]);
+  }
+  keys.sort((a, b) => b[0].length - a[0].length);
+  const out = new Map<string, string[]>();
+  for (const m of markers) {
+    if (!VEHICLE_MARKER_CATS.includes(m.category)) continue;
+    const mk = ` ${vehicleKey(m.name)} `;
+    const hit = keys.find(([k]) => mk.includes(` ${k} `));
+    if (hit) out.set(hit[1].id, [...(out.get(hit[1].id) ?? []), m.id]);
+  }
+  return out;
 }

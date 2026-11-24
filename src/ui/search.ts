@@ -1,6 +1,5 @@
 import { search, type SearchIndex, type Hit } from '../search/search';
-import { glyphSvg } from '../icons/pin';
-import { iconFor } from '../icons/mapping';
+import { glyphSvg, hitIco } from '../icons/pin';
 import type { Category, Label, Marker } from '../data/types';
 import { trapFocus } from './focus';
 
@@ -86,11 +85,11 @@ export class SearchView {
         <span class="hit-text"><b>${esc(h.label.name)}</b><small>${PLACE_TYPE[h.label.type] ?? 'Place'}</small></span></button></li>`;
     }
     if (h.type === 'category') {
-      return `<li><button data-i="${i}" role="option" class="hit"><span class="hit-ico" style="--c:${h.category.color}">${glyphSvg(iconFor(h.category.id), 18)}</span>
+      return `<li><button data-i="${i}" role="option" class="hit">${hitIco(h.category.id, h.category.color)}
         <span class="hit-text"><b>${esc(h.category.name)}</b><small>Show only · ${h.category.count}</small></span></button></li>`;
     }
     const c = h.category;
-    return `<li><button data-i="${i}" role="option" class="hit"><span class="hit-ico" style="--c:${c?.color ?? '#888'}">${glyphSvg(iconFor(h.marker.category), 18)}</span>
+    return `<li><button data-i="${i}" role="option" class="hit">${hitIco(h.marker.category, c?.color ?? '#888')}
       <span class="hit-text"><b>${esc(h.marker.name)}</b><small>${esc(c?.name ?? h.marker.category)}</small></span></button></li>`;
   }
 

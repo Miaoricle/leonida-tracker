@@ -101,6 +101,8 @@ html[data-sheet="full"] .controls { visibility: hidden; }
 .hit:hover, .hit:focus-visible { background: rgba(var(--ov), 0.07); }
 .hit-ico { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--c, #456); color: #fff; }
 .hit-ico.place { background: #31475c; }
+.mini-pin.has-blip, .hit-ico.has-blip { background: none; border: 0; border-radius: 0; }
+.blip-ico { display: block; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45)); }
 .hit-text { display: grid; min-width: 0; }
 .hit-text b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hit-text small { color: var(--muted); font-size: 12px; }

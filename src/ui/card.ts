@@ -1,6 +1,6 @@
 import type { Category, Marker } from '../data/types';
 import type { ProgressStore } from '../state/progress';
-import { glyphSvg } from '../icons/pin';
+import { glyphSvg, catIcon } from '../icons/pin';
 import { iconFor } from '../icons/mapping';
 import { Sheet } from './sheet';
 import { openViewer } from './viewer';
@@ -18,6 +18,9 @@ export interface CardDeps {
   photoUrl?: (m: Marker) => string | undefined;
   onEdit?: (m: Marker) => void;
   onDelete?: (m: Marker) => void;
+  /** vehicle shown by this marker (standout vehicles etc.): opens its page in the Vehicles tab */
+  vehicleFor?: (m: Marker) => string | undefined;
+  onVehicle?: (slug: string) => void;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -69,7 +72,7 @@ export class MarkerCard {
     this.sheet.body.innerHTML = `
       <div class="card" style="--c:${c?.color ?? (m.source === 'user' ? '#e91e63' : '#888')}">
         <div class="card-meta">
-          <span class="chip"><span class="chip-ico">${glyphSvg(iconFor(m.category), 14)}</span>${esc(catName)}</span>${user ? '<span class="chip mine">My marker</span>' : ''}
+          <span class="chip">${((ic) => `<span class="chip-ico${ic.blip ? ' has-blip' : ''}">${ic.html}</span>`)(catIcon(user && m.customCategory ? 'custom' : m.category, iconFor(m.category), 14))}${esc(catName)}</span>${user ? '<span class="chip mine">My marker</span>' : ''}
           ${sibs.length > 1 ? `<span class="card-n">#${n} of ${sibs.length}</span>` : ''}
         </div>
         ${user || c?.trackable !== false ? `<button class="found-btn" aria-pressed="false"><span class="found-ico">${glyphSvg('check', 24)}</span><span class="found-label">Mark as found</span></button>` : '<p class="countonly">Count-only category (not tracked)</p>'}
@@ -77,6 +80,7 @@ export class MarkerCard {
           <button class="act fav" aria-pressed="false" aria-label="Favourite">${glyphSvg('star', 22)}<span>Favourite</span></button>
           <button class="act share" aria-label="Share link">${glyphSvg('share', 22)}<span>Share</span></button>
           <button class="act zoom" aria-label="Zoom in">${glyphSvg('zoom_in', 22)}<span>Zoom</span></button>
+          ${this.d.vehicleFor?.(m) ? `<button class="act veh" aria-label="Vehicle details">${glyphSvg('directions_car', 22)}<span>Vehicle</span></button>` : ''}
         </div>
         ${img ? `<button class="card-img" aria-label="View image full screen"><img decoding="async" alt="" src="${esc(img)}"></button>` : ''}
         ${shot ? '<button class="card-img loading" aria-label="View screenshot full screen"><img decoding="async" alt=""></button>' : ''}
@@ -132,6 +136,9 @@ export class MarkerCard {
     } else if (t.closest('.share')) {
       // personal markers only exist on this device: share the spot instead
       void shareLink(m.source === 'user' ? appUrl({ at: `${Math.round(m.x)},${Math.round(m.y)},6` }) : appUrl({ m: m.id }), m.name);
+    } else if (t.closest('.veh')) {
+      const slug = this.d.vehicleFor?.(m);
+      if (slug) this.d.onVehicle?.(slug);
     } else if (t.closest('.zoom')) {
       this.d.onZoom(m);
     } else if (t.closest('.card-img')) {

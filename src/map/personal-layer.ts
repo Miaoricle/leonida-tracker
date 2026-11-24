@@ -22,7 +22,7 @@ export class PersonalLayer {
   }
 
   private icon(m: PersonalMarker) {
-    const icon = pinIcon(m.customCategory ? 'custom' : m.category, this.color(m.category) ?? CUSTOM_COLOR, this.opts.isFound(m.id) ? 'found' : 'normal', this.opts.size?.() ?? 30, m.id === this.selected);
+    const icon = pinIcon(m.customCategory ? 'custom' : m.category, this.color(m.category) ?? CUSTOM_COLOR, this.opts.isFound(m.id) ? 'found' : 'normal', this.opts.size?.() ?? 30, m.id === this.selected, false);
     return L.divIcon({ ...icon.options, className: `${icon.options.className} pin-user` });
   }
 

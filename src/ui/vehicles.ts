@@ -1,4 +1,4 @@
-import { glyphSvg } from '../icons/pin';
+import { glyphSvg, hitIco } from '../icons/pin';
 import { shotUrl } from '../data/images';
 import {
   type Vehicle, type SortKey, type VehicleQuery, SORTS, STAT_NAMES, queryVehicles, counts, sortValue, stat, price, sellValue, tracker, field,
@@ -13,11 +13,14 @@ const NOT_LISTED = '<span class="unk">Not listed yet</span>';
 // fields shown in their own sections (not repeated in "Info")
 const SHOWN = /^(cost to (register|buy)|price|tracker|sell value.*|variant.*|vehicle class|manufacturer|standout set|rating)$/i;
 
+export interface VehicleLocation { id: string; name: string; category: string; catName: string; color: string; found: boolean }
+
 export interface VehiclesDeps {
   vehicles: () => Promise<Vehicle[]>;
-  /** map marker for a standout vehicle with this name, if any */
-  onShowOnMap?: (v: Vehicle) => boolean;
-  canShowOnMap?: (v: Vehicle) => boolean;
+  /** map markers showing this vehicle (standout vehicles, spawns, requests) */
+  locations?: (v: Vehicle) => VehicleLocation[];
+  /** open a map marker; true when it exists */
+  onOpenMarker?: (id: string) => boolean;
 }
 
 export class VehiclesView {
@@ -97,6 +100,7 @@ export class VehiclesView {
     }
     const { classes, makers } = counts(this.list);
     const standouts = this.list.filter((v) => v.standoutSet).length;
+    const onMap = this.list.filter((v) => this.locs(v).length).length;
     this.el.innerHTML = `
       ${this.header(`Vehicles <small>${this.list.length}</small>`)}
       <div class="v-tools">
@@ -106,7 +110,7 @@ export class VehiclesView {
           <select class="v-class" aria-label="Class"><option value="">All classes</option>${classes.map(([c, n]) => `<option value="${esc(c)}" ${c === this.q.cls ? 'selected' : ''}>${esc(c)} (${n})</option>`).join('')}</select>
           <select class="v-maker" aria-label="Manufacturer"><option value="">All makers</option>${makers.map(([c, n]) => `<option value="${esc(c)}" ${c === this.q.maker ? 'selected' : ''}>${esc(c)} (${n})</option>`).join('')}</select>
         </div>
-        <div class="seg v-type" role="radiogroup">${([['all', 'All'], ['regular', 'Regular'], ['standout', `Standouts (${standouts})`]] as const).map(([v, l]) => `<button role="radio" data-type="${v}" aria-checked="${(this.q.type ?? 'all') === v}">${l}</button>`).join('')}</div>
+        <div class="seg v-type" role="radiogroup">${([['all', 'All'], ['regular', 'Regular'], ['standout', `Standouts (${standouts})`], ['onmap', `On map (${onMap})`]] as const).map(([v, l]) => `<button role="radio" data-type="${v}" aria-checked="${(this.q.type ?? 'all') === v}">${l}</button>`).join('')}</div>
       </div>
       <div class="v-count muted small" aria-live="polite"></div>
       <ul class="v-grid"></ul>`;
@@ -124,7 +128,7 @@ export class VehiclesView {
   private renderGrid() {
     const grid = this.el.querySelector('.v-grid');
     if (!grid) return;
-    const rows = queryVehicles(this.list, this.q);
+    const rows = queryVehicles(this.list, { ...this.q, onMap: (v) => this.locs(v).length > 0 });
     const statName = SORTS.find(([k]) => k === this.q.sort)?.[1] ?? '';
     this.el.querySelector('.v-count')!.textContent = `${rows.length} vehicle${rows.length === 1 ? '' : 's'}`;
     grid.innerHTML = rows.length ? rows.map((v) => {
@@ -136,7 +140,7 @@ export class VehiclesView {
       return `<li><button class="v-card" data-v="${esc(v.slug)}" aria-label="${esc(v.name)}${val !== undefined && this.q.sort !== 'name' ? `, ${statName} ${isMoney ? fmtMoney(val) : val}` : ''}">
         <span class="v-thumb loading"><img alt="" data-src="${esc(v.thumbnail ?? v.image ?? '')}"></span>
         <span class="v-name">${esc(v.name)}</span>
-        <span class="v-sub">${esc([v.manufacturer, v.class[0]].filter(Boolean).join(' · '))}${v.standoutSet ? ' · <em>Standout</em>' : ''}</span>
+        <span class="v-sub">${esc([v.manufacturer, v.class[0]].filter(Boolean).join(' · '))}${v.standoutSet ? ' · <em>Standout</em>' : ''}${((n) => (n ? ` · <span class="v-pin">${glyphSvg('location_on', 13)}${n}</span>` : ''))(this.locs(v).length)}</span>
         ${metric}
       </button></li>`;
     }).join('') : '<li class="v-none muted">No vehicle matches these filters.</li>';
@@ -148,6 +152,7 @@ export class VehiclesView {
     this.current = v;
     syncUrl({ v: v.slug } );
     const p = price(v), sell = sellValue(v), tr = tracker(v);
+    const locs = this.locs(v);
     const security = field(v, /security|alarm/i), cloner = field(v, /key ?clon|keyless/i);
     const variants = v.fields?.find((f) => /variant/i.test(f.label))?.items ?? [];
     const info = (v.fields ?? []).filter((f) => !SHOWN.test(f.label));
@@ -164,7 +169,8 @@ export class VehiclesView {
           ${v.class.map((c) => `<span class="chip">${esc(c)}</span>`).join('')}
           ${v.standoutSet ? `<span class="chip mine">Standout · ${esc(v.standoutSet)}</span>` : ''}
         </div>
-        ${this.d.canShowOnMap?.(v) ? `<button class="pill primary wide v-map">${glyphSvg('map', 20)} Show on map</button>` : ''}
+        ${locs.length ? `<h3 class="sec-h">Where to find it <small>(${locs.length} on the map)</small></h3>
+        <ul class="v-locs">${locs.map((l) => `<li><button class="hit v-loc" data-m="${esc(l.id)}">${hitIco(l.category, l.color)}<span class="hit-text"><b>${esc(l.name)}</b><small>${esc(l.catName)}${l.found ? ' · Found ✓' : ''}</small></span>${glyphSvg('chevron_right', 20)}</button></li>`).join('')}</ul>` : '<p class="muted small v-noloc">Not on the map yet.</p>'}
         <h3 class="sec-h">How to get</h3>
         <dl class="v-kv">
           <dt>Cost to register</dt><dd>${fmtMoney(p) ?? NOT_LISTED}</dd>
@@ -190,6 +196,8 @@ export class VehiclesView {
     this.el.querySelector<HTMLElement>('.v-back')?.focus();
   }
 
+  private locs(v: Vehicle): VehicleLocation[] { return this.d.locations?.(v) ?? []; }
+
   private onClick(e: Event) {
     const t = e.target as HTMLElement;
     if (t.closest('.v-close')) return this.close();
@@ -202,7 +210,8 @@ export class VehiclesView {
       this.renderGrid();
       return;
     }
-    if (t.closest('.v-map') && this.current) { if (this.d.onShowOnMap?.(this.current)) this.close(); return; }
+    const mid = t.closest<HTMLElement>('.v-loc')?.dataset.m;
+    if (mid) { if (this.d.onOpenMarker?.(mid)) this.close(); return; }
     const slug = t.closest<HTMLElement>('[data-v]')?.dataset.v;
     const v = slug ? this.list.find((x) => x.slug === slug) : undefined;
     if (v) this.showDetail(v);

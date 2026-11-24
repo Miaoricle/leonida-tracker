@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { queryVehicles, price, sellValue, tracker, money, counts, type Vehicle } from '../../src/data/vehicles';
+import { queryVehicles, price, sellValue, tracker, money, counts, matchVehicleMarkers, type Vehicle } from '../../src/data/vehicles';
 
 // synthetic test vehicles (not GTABase data)
 const v = (o: Partial<Vehicle> & { name: string }): Vehicle => ({ id: o.name, slug: o.name.toLowerCase(), url: `u/${o.name}`, class: ['Sports'], ...o });
@@ -32,5 +32,34 @@ describe('vehicles', () => {
     expect(queryVehicles(all, { sort: 'name', type: 'standout' }).map((x) => x.name)).toEqual(['Charlie']);
     expect(queryVehicles(all, { sort: 'name', text: 'delta' }).map((x) => x.name)).toEqual(['Délta']);
     expect(counts(all).makers).toEqual([['Annis', 2], ['Grotti', 2]]);
+  });
+});
+
+describe('vehicles on the map', () => {
+  const vs = [
+    v({ name: 'Hellion', manufacturer: 'Annis' }),
+    v({ name: 'Coquette', manufacturer: 'Invetero' }),
+    v({ name: 'Coquette D10', manufacturer: 'Invetero' }),
+    v({ name: "Martha's Vamos", manufacturer: 'Declasse' }),
+  ];
+  const ms = [
+    { id: 'a', name: "Annis '95 Hellion (Moses' request)", category: 'vehicle-request' },
+    { id: 'b', name: 'Invetero Coquette D10 (Graffiti)', category: 'standout-vehicle' },
+    { id: 'c', name: "Invetero '64 Coquette", category: 'standout-vehicle' },
+    { id: 'd', name: "Declasse Martha’s Vamos", category: 'standout-vehicle' },
+    { id: 'e', name: 'Fighter Jets', category: 'vehicle-spawn' },
+    { id: 'f', name: 'Hellion', category: 'gas-station' },
+  ];
+  it('matches names with years, notes in brackets and curly apostrophes; longest name wins', () => {
+    const r = matchVehicleMarkers(vs, ms);
+    expect(r.get('Hellion')).toEqual(['a']);
+    expect(r.get('Coquette D10')).toEqual(['b']);
+    expect(r.get('Coquette')).toEqual(['c']);
+    expect(r.get("Martha's Vamos")).toEqual(['d']);
+    expect([...r.values()].flat()).not.toContain('e');
+    expect([...r.values()].flat()).not.toContain('f');
+  });
+  it('filters to vehicles on the map', () => {
+    expect(queryVehicles(vs, { sort: 'name', type: 'onmap', onMap: (x) => x.name === 'Hellion' }).map((x) => x.name)).toEqual(['Hellion']);
   });
 });

@@ -71,4 +71,5 @@ Category → icon mapping: `src/icons/mapping.ts`. Coordinate system and alignme
 - Locations & screenshots: [GTABase.com](https://www.gtabase.com/gta-6/map/)
 - Map tiles: [gtadb.org](https://gtadb.org) and contributors (CC BY 4.0)
 - Icons: Google Material Symbols (Apache 2.0)
+- Map blips: when loaded from the private data repo, the in-game icons from Grand Theft Auto VI (© Rockstar Games) via GTABase. Not in this repo or the public build.
 - Fan project, not affiliated with Rockstar Games or Take-Two.

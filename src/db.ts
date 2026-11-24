@@ -6,7 +6,7 @@ export interface Progress { profileId: string; markerId: string; found: boolean;
 export interface Note { profileId: string; markerId: string; text: string; updatedAt: string }
 export interface Favourite { profileId: string; markerId: string; addedAt: string }
 export interface PersonalMarker extends Marker { source: 'user'; profileId: string; customCategory?: string; note?: string; photo?: Blob }
-export interface DataCache { key: 'markers' | 'categories' | 'labels' | 'meta' | 'images' | 'vehicles'; json: unknown; etag?: string; fetchedAt: string }
+export interface DataCache { key: 'markers' | 'categories' | 'labels' | 'meta' | 'images' | 'vehicles' | 'icons'; json: unknown; etag?: string; fetchedAt: string }
 export interface Setting { key: string; value: unknown }
 
 class LeonidaDB extends Dexie {

@@ -1,7 +1,6 @@
 import type { Category, Group, Marker } from '../data/types';
 import { MAX_PROFILES, type ProgressStore, type Counts } from '../state/progress';
-import { glyphSvg } from '../icons/pin';
-import { iconFor } from '../icons/mapping';
+import { glyphSvg, hitIco } from '../icons/pin';
 import { Sheet } from './sheet';
 import { dialog } from './dialog';
 import { toast } from './toast';
@@ -95,7 +94,7 @@ export class Menu {
         </ul>
         <h3 class="sec-h">Recent finds</h3>
         ${recent.length ? `<ul class="recent">${recent.map((r) => { const c = this.d.categories.find((x) => x.id === r.m!.category); return `
-          <li><button class="hit" data-m="${esc(r.markerId)}"><span class="hit-ico" style="--c:${c?.color ?? '#888'}">${glyphSvg(iconFor(r.m!.category), 18)}</span>
+          <li><button class="hit" data-m="${esc(r.markerId)}">${hitIco(r.m!.category, c?.color ?? '#888')}
             <span class="hit-text"><b>${esc(r.m!.name)}</b><small>${esc(c?.name ?? '')} · ${when(r.foundAt)}</small></span></button></li>`; }).join('')}</ul>`
           : '<p class="muted">Nothing found yet. Tap a marker and press <b>Mark as found</b>.</p>'}
       </div>`;
@@ -173,6 +172,7 @@ export class Menu {
           <li>Locations &amp; screenshots: <a href="https://www.gtabase.com/gta-6/map/" target="_blank" rel="noopener">GTABase.com</a>, used with the owner's permission for personal use</li>
           <li>Map tiles: <a href="https://gtadb.org" target="_blank" rel="noopener">gtadb.org</a> and contributors (CC BY 4.0)</li>
           <li>Icons: Google Material Symbols (Apache 2.0)</li>
+          <li>Map blips (from your private data): in-game icons from Grand Theft Auto VI © Rockstar Games, via GTABase</li>
           <li>Fan project, not affiliated with Rockstar Games or Take-Two.</li>
         </ul>
       </div>`;

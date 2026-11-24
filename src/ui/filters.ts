@@ -1,5 +1,5 @@
 import type { Category, Group } from '../data/types';
-import { glyphSvg } from '../icons/pin';
+import { glyphSvg, catIcon } from '../icons/pin';
 import { iconFor } from '../icons/mapping';
 import { FilterStore, setCategory, setGroup, showAll, hideAll, toggleOnly, toggleCollapsed, isVisible } from '../state/filters';
 import type { Counts } from '../state/progress';
@@ -66,7 +66,7 @@ export class FilterPanel {
       <li class="cat" data-c="${c.id}" style="--c:${c.color || g.color}">
         <label class="cat-main">
           <input type="checkbox" class="cb cat-cb">
-          <span class="mini-pin" aria-hidden="true">${glyphSvg(iconFor(c.id), 16)}</span>
+          ${((ic) => `<span class="mini-pin${ic.blip ? ' has-blip' : ''}" aria-hidden="true">${ic.html}</span>`)(catIcon(c.id, iconFor(c.id), 16))}
           <span class="cat-text">
             <span class="cat-name">${esc(c.name)}</span>
             <span class="cat-count"></span>
