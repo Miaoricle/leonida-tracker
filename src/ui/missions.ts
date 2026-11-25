@@ -16,6 +16,8 @@ import { openViewer } from './viewer';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const HIDE = /^(chapter|rewards|protagonist \(playable\))$/i;
+/** one colour per chapter, in story order (Prologue, Chapter 1…) */
+const CHAPTER_COLORS = ['#4dd0e1', '#ffb347', '#ff6f91', '#c77dff', '#5aa9ff', '#ffd54f', '#69f0ae'];
 /** info that is safe before playing a mission */
 const SAFE_INFO = /^(mission type|required for 100%)$/i;
 
@@ -158,7 +160,7 @@ export class MissionsView {
     for (const m of rows) byChapter.set(m.chapter, [...(byChapter.get(m.chapter) ?? []), m]);
     box.innerHTML = rows.length ? [...byChapter].map(([ch, ms]) => {
       const c = p.chapters.get(ch)!;
-      return `<section class="ms-ch"><h3 class="sec-h">${esc(ch)} <small>${c.done}/${c.total}</small></h3><ul class="ms-rows">${ms.map((m) => {
+      return `<section class="ms-ch" style="--chc:${CHAPTER_COLORS[[...p.chapters.keys()].indexOf(ch) % CHAPTER_COLORS.length]}"><h3 class="sec-h">${esc(ch)} <small>${c.done}/${c.total}</small></h3><ul class="ms-rows">${ms.map((m) => {
         const d = this.done(m);
         return `<li class="ms-row${d ? ' done' : ''}">
           <button class="ms-tick" data-tick="${esc(m.slug)}" role="checkbox" aria-checked="${d}" aria-label="${esc(m.name)} done">${glyphSvg('check', 20)}</button>

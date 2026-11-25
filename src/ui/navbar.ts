@@ -27,7 +27,9 @@ export function createNavBar(tabs: NavTab[], onMore: () => void): HTMLElement {
     const id = (e.target as HTMLElement).closest<HTMLElement>('[data-tab]')?.dataset.tab;
     if (!id) return;
     const t = tabs.find((x) => x.id === id);
-    if (id === 'more') { closeAll(); onMore(); return; }
+    const menuOpen = !!document.querySelector('#menu:not([data-snap="closed"])');
+    document.querySelectorAll<HTMLElement>('.sheet:not([data-snap="closed"]) .sheet-close').forEach((b) => b.click());
+    if (id === 'more') { closeAll(); if (!menuOpen) onMore(); return; }
     if (!t?.view) { closeAll(); return; } // Map
     if (!t.view.el.hidden) { t.view.el.scrollTo({ top: 0, behavior: 'smooth' }); return; } // tap again: back to top
     closeAll(t);

@@ -4,6 +4,7 @@ import './ui.css';
 import './card.css';
 import './settings.css';
 import './vehicles.css';
+import './theme.css';
 import L from 'leaflet';
 import { createMap, readSavedView, type TileRanges } from './map/map';
 import { addLabels } from './map/labels';
