@@ -30,6 +30,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   parachuting: 'paragliding',
   pool: 'pool',
   race: 'sports_score',
+  'race-challenge': 'sports_score',
   'random-event': 'priority_high',
   'shooting-range': 'my_location',
   // Collectibles
@@ -45,6 +46,8 @@ export const CATEGORY_ICONS: Record<string, string> = {
   'unique-weapon': 'swords',
   'scoop-container': 'package_2',
   magazine: 'menu_book',
+  'style-magazine': 'menu_book',
+  'cocaine-flamingo': 'flutter_dash',
   meditation: 'self_improvement',
   'message-bottle': 'liquor',
   meteorite: 'planet',
