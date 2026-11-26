@@ -20,6 +20,14 @@ export interface Vehicle {
   fields?: VehicleField[];
   stats?: Record<string, number>;
   description?: string;
+  // "how to get" facts from GTABase's vehicle list (undefined = not known yet)
+  canRegister?: string; // Yes | No
+  security?: string; // Not Mentioned | Modern (May Need Key Cloner) | Advanced (Key Cloner)
+  access?: string; // Key | Keyless (Key Cloner)
+  tracker?: string; // None | Standard | Advanced | Military
+  storage?: number;
+  costToRegister?: number;
+  costBand?: string; // "Under $5,000", "$5,000 - $10,000", …
 }
 
 export const STAT_NAMES = ['Speed', 'Acceleration', 'Asphalt Handling', 'Off-Road Handling', 'Strength'] as const;
@@ -43,9 +51,9 @@ export function field(v: Vehicle, label: RegExp): string | undefined {
 /** "$14,250" -> 14250 */
 export const money = (s?: string) => { const n = s ? Number(s.replace(/[^\d.]/g, '')) : NaN; return Number.isFinite(n) && n > 0 ? n : undefined; };
 
-export const price = (v: Vehicle) => money(field(v, /cost to (register|buy)|^price|purchase/i));
+export const price = (v: Vehicle) => v.costToRegister || money(field(v, /cost to (register|buy)|^price|purchase/i));
 export const sellValue = (v: Vehicle) => money(field(v, /sell value/i));
-export const tracker = (v: Vehicle) => field(v, /tracker/i);
+export const tracker = (v: Vehicle) => v.tracker ?? field(v, /tracker/i);
 export const stat = (v: Vehicle, name: string) => v.stats?.[name] ?? (name === 'Speed' ? v.speed : undefined);
 
 export type SortKey = 'speed' | 'acceleration' | 'asphalt' | 'offroad' | 'strength' | 'price-asc' | 'price-desc' | 'sell-desc' | 'name';
@@ -63,20 +71,68 @@ export function sortValue(v: Vehicle, key: SortKey): number | undefined {
   return undefined;
 }
 
-export interface VehicleQuery { text?: string; sort: SortKey; cls?: string; maker?: string; type?: 'all' | 'regular' | 'standout' | 'onmap'; onMap?: (v: Vehicle) => boolean }
+/** Filter value meaning "not known yet" (GTABase's "Unknown"). */
+export const UNKNOWN = '__unknown';
+/** The dropdown filters, in GTABase's order: query key, label, and how to read the value from a vehicle. */
+export const FACETS = [
+  ['maker', 'Manufacturer', (v: Vehicle) => v.manufacturer],
+  ['standout', 'Standout set', (v: Vehicle) => v.standoutSet],
+  ['canRegister', 'Can be registered', (v: Vehicle) => v.canRegister],
+  ['security', 'Security', (v: Vehicle) => v.security],
+  ['access', 'Access', (v: Vehicle) => v.access],
+  ['tracker', 'Tracker', (v: Vehicle) => tracker(v)],
+  ['storage', 'Storage', (v: Vehicle) => (v.storage === undefined ? undefined : String(v.storage))],
+  ['costBand', 'Cost to register', (v: Vehicle) => v.costBand],
+  ['cls', 'Vehicle class', (v: Vehicle) => v.class[0]],
+] as const;
+export type FacetKey = (typeof FACETS)[number][0];
+
+export interface VehicleQuery {
+  text?: string; realLife?: string; sort: SortKey; onMapOnly?: boolean; onMap?: (v: Vehicle) => boolean;
+  maker?: string; standout?: string; canRegister?: string; security?: string; access?: string; tracker?: string; storage?: string; costBand?: string; cls?: string;
+}
+
+/** Pure: options for one dropdown (value + count), sorted sensibly; "Not known yet" last. */
+export function facetOptions(all: Vehicle[], key: FacetKey): [string, number][] {
+  const get = FACETS.find((f) => f[0] === key)![2];
+  const m = new Map<string, number>();
+  let unknown = 0;
+  for (const v of all) {
+    if (key === 'cls') { for (const c of v.class) m.set(c, (m.get(c) ?? 0) + 1); continue; }
+    const x = get(v);
+    if (x === undefined || x === '') unknown++; else m.set(x, (m.get(x) ?? 0) + 1);
+  }
+  // numeric order for numbers and money bands ("Under $5,000" first, "$5,000 - $10,000" by its first number)
+  const lead = (s: string) => { if (/^under/i.test(s)) return -1; const m = s.match(/[\d,.]+/); return m ? Number(m[0].replace(/,/g, '')) : NaN; };
+  const out = [...m].sort((a, b) => {
+    const x = lead(a[0]), y = lead(b[0]);
+    return !Number.isNaN(x) && !Number.isNaN(y) ? x - y : a[0].localeCompare(b[0]);
+  });
+  if (key === 'standout') return [['__none', all.length - [...m.values()].reduce((p, c) => p + c, 0)], ['__any', [...m.values()].reduce((p, c) => p + c, 0)], ...out];
+  return unknown && key !== 'cls' && key !== 'maker' ? [...out, [UNKNOWN, unknown]] : out;
+}
+
+function facetMatch(v: Vehicle, key: FacetKey, want: string | undefined): boolean {
+  if (!want) return true;
+  if (key === 'cls') return v.class.includes(want);
+  const x = FACETS.find((f) => f[0] === key)![2](v);
+  if (key === 'standout' && want === '__none') return !x;
+  if (key === 'standout' && want === '__any') return !!x;
+  if (want === UNKNOWN) return x === undefined || x === '';
+  return x === want;
+}
 
 const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 /** Pure: filter + sort. Vehicles without a value for the sort key go last (keeps "Cheapest" honest). */
 export function queryVehicles(all: Vehicle[], q: VehicleQuery): Vehicle[] {
   const t = q.text ? norm(q.text.trim()) : '';
+  const rl = q.realLife ? norm(q.realLife.trim()) : '';
   const out = all.filter((v) =>
-    (!q.cls || v.class.includes(q.cls)) &&
-    (!q.maker || v.manufacturer === q.maker) &&
-    (q.type !== 'regular' || !v.standoutSet) &&
-    (q.type !== 'standout' || !!v.standoutSet) &&
-    (q.type !== 'onmap' || !!q.onMap?.(v)) &&
-    (!t || norm(`${v.name} ${v.manufacturer ?? ''} ${v.realLife ?? ''} ${v.class.join(' ')} ${v.standoutSet ?? ''}`).includes(t)));
+    FACETS.every(([k]) => facetMatch(v, k, q[k])) &&
+    (!q.onMapOnly || !!q.onMap?.(v)) &&
+    (!t || norm(`${v.name} ${v.manufacturer ?? ''}`).includes(t)) &&
+    (!rl || norm(v.realLife ?? field(v, /real life/i) ?? '').includes(rl)));
   if (q.sort === 'name') return out.sort((a, b) => a.name.localeCompare(b.name));
   const dir = q.sort === 'price-asc' ? 1 : -1;
   return out.sort((a, b) => {

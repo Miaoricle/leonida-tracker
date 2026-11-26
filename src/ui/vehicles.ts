@@ -1,7 +1,7 @@
 import { glyphSvg, hitIco } from '../icons/pin';
 import { shotUrl } from '../data/images';
 import {
-  type Vehicle, type SortKey, type VehicleQuery, SORTS, STAT_NAMES, queryVehicles, counts, sortValue, stat, price, sellValue, tracker, field,
+  type Vehicle, type SortKey, type VehicleQuery, type FacetKey, SORTS, STAT_NAMES, FACETS, UNKNOWN, queryVehicles, facetOptions, sortValue, stat, price, sellValue, tracker, field,
 } from '../data/vehicles';
 import { getSetting, setSetting } from '../db';
 import { trapFocus } from './focus';
@@ -9,7 +9,11 @@ import { syncUrl } from '../deeplink';
 import { ViewMemory } from './viewmemory';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const fmtMoney = (n?: number) => (n === undefined ? undefined : `$${n.toLocaleString('en-US')}`);
+const fmtMoney = (n?: number) => (n === undefined ? undefined : `${n.toLocaleString('en-US')}`);
+/** what a filter option is called in the dropdown */
+const optLabel = (key: FacetKey, v: string) => (v === UNKNOWN ? 'Unknown' : v === '__none' ? 'Hide standout vehicles' : v === '__any' ? 'Any standout set'
+  : key === 'storage' ? (v === '0' ? 'No storage' : `${v} slots`) : v);
+const FACET_KEYS = FACETS.map((x) => x[0]);
 const NOT_LISTED = '<span class="unk">Not listed yet</span>';
 // fields shown in their own sections (not repeated in "Info")
 const SHOWN = /^(cost to (register|buy)|price|tracker|sell value.*|variant.*|vehicle class|manufacturer|standout set|rating)$/i;
@@ -29,7 +33,8 @@ export interface VehiclesDeps {
 export class VehiclesView {
   readonly el: HTMLElement;
   private list: Vehicle[] = [];
-  private q: VehicleQuery = { sort: 'speed', type: 'all' };
+  private q: VehicleQuery = { sort: 'speed' };
+  private filtersOpen = matchMedia('(min-width: 700px)').matches;
   private release: (() => void) | null = null;
   private returnFocus: HTMLElement | null = null;
   private io: IntersectionObserver;
@@ -62,16 +67,18 @@ export class VehiclesView {
     this.el.addEventListener('click', (e) => this.onClick(e));
     this.el.addEventListener('input', (e) => {
       const t = e.target as HTMLInputElement;
-      if (t.classList.contains('v-search')) { clearTimeout(this.timer); this.timer = window.setTimeout(() => { this.q.text = t.value; this.renderGrid(); }, 120); }
+      const key = t.classList.contains('v-search') ? 'text' : t.classList.contains('v-reallife') ? 'realLife' : null;
+      if (key) { clearTimeout(this.timer); this.timer = window.setTimeout(() => { this.q[key] = t.value || undefined; this.saveQuery(); this.renderGrid(); }, 120); }
     });
     this.el.addEventListener('change', (e) => {
-      const t = e.target as HTMLSelectElement;
+      const t = e.target as HTMLSelectElement & HTMLInputElement;
+      const facet = t.dataset.facet as FacetKey | undefined;
       if (t.classList.contains('v-sort')) this.q.sort = t.value as SortKey;
-      else if (t.classList.contains('v-class')) this.q.cls = t.value || undefined;
-      else if (t.classList.contains('v-maker')) this.q.maker = t.value || undefined;
+      else if (facet) this.q[facet] = t.value || undefined;
+      else if (t.classList.contains('v-onmap')) this.q.onMapOnly = t.checked;
       else return;
-      void setSetting('vehicles.query', { sort: this.q.sort, cls: this.q.cls, maker: this.q.maker, type: this.q.type });
-      this.renderGrid();
+      this.saveQuery();
+      this.showList(); // refresh the "Filters (n)" badge too
     });
   }
 
@@ -98,6 +105,16 @@ export class VehiclesView {
     this.returnFocus?.focus?.({ preventScroll: true });
   }
 
+  private saveQuery() {
+    const { onMap: _fn, ...keep } = this.q;
+    void setSetting('vehicles.query', keep);
+  }
+
+  /** active filters (not sort / name search), for the "Filters (n)" badge */
+  private active() {
+    return FACET_KEYS.filter((k) => this.q[k]).length + (this.q.realLife ? 1 : 0) + (this.q.onMapOnly ? 1 : 0);
+  }
+
   // ---------- list ----------
   private showList() {
     this.current = null;
@@ -106,19 +123,32 @@ export class VehiclesView {
       this.el.innerHTML = `${this.header('Vehicles')}<div class="v-empty"><p>No vehicle data yet.</p><p class="muted">Run <b>Sync GTABase</b> in your leonida-data repo, then <b>Menu → Settings → Check for updates</b>.</p></div>`;
       return;
     }
-    const { classes, makers } = counts(this.list);
-    const standouts = this.list.filter((v) => v.standoutSet).length;
     const onMap = this.list.filter((v) => this.locs(v).length).length;
+    const n = this.active();
+    const select = (key: FacetKey, label: string) => `<label class="vf"><span>${label}</span><select data-facet="${key}"><option value="">Any</option>${facetOptions(this.list, key).map(([v, c]) => `<option value="${esc(v)}" ${this.q[key] === v ? 'selected' : ''}>${esc(optLabel(key, v))} (${c})</option>`).join('')}</select></label>`;
     this.el.innerHTML = `
       ${this.header(`Vehicles <small>${this.list.length}</small>`)}
       <div class="v-tools">
-        <label class="v-searchbox">${glyphSvg('search', 20)}<input class="v-search" type="search" placeholder="Search vehicles, makers, real cars" aria-label="Search vehicles" value="${esc(this.q.text ?? '')}" autocomplete="off" spellcheck="false"></label>
-        <div class="v-row">
+        <div class="v-row2">
+          <label class="v-searchbox">${glyphSvg('search', 20)}<input class="v-search" type="search" placeholder="Enter vehicle name" aria-label="Vehicle name" value="${esc(this.q.text ?? '')}" autocomplete="off" spellcheck="false"></label>
           <select class="v-sort" aria-label="Sort">${SORTS.map(([k, l]) => `<option value="${k}" ${k === this.q.sort ? 'selected' : ''}>${l}</option>`).join('')}</select>
-          <select class="v-class" aria-label="Class"><option value="">All classes</option>${classes.map(([c, n]) => `<option value="${esc(c)}" ${c === this.q.cls ? 'selected' : ''}>${esc(c)} (${n})</option>`).join('')}</select>
-          <select class="v-maker" aria-label="Manufacturer"><option value="">All makers</option>${makers.map(([c, n]) => `<option value="${esc(c)}" ${c === this.q.maker ? 'selected' : ''}>${esc(c)} (${n})</option>`).join('')}</select>
         </div>
-        <div class="seg v-type" role="radiogroup">${([['all', 'All'], ['regular', 'Regular'], ['standout', `Standouts (${standouts})`], ['onmap', `On map (${onMap})`]] as const).map(([v, l]) => `<button role="radio" data-type="${v}" aria-checked="${(this.q.type ?? 'all') === v}">${l}</button>`).join('')}</div>
+        <details class="v-filters" ${this.filtersOpen ? 'open' : ''}>
+          <summary>${glyphSvg('tune', 20)} Filters${n ? ` <b class="vf-n">${n}</b>` : ''}${n ? '<button type="button" class="link-btn v-clear">Clear all</button>' : ''}</summary>
+          <div class="vf-grid">
+            ${select('maker', 'Manufacturer')}
+            ${select('standout', 'Standout set')}
+            <label class="vf"><span>Real life vehicle</span><span class="vf-text">${glyphSvg('search', 18)}<input class="v-reallife" type="search" placeholder="Enter real life vehicle" value="${esc(this.q.realLife ?? '')}" autocomplete="off" spellcheck="false"></span></label>
+            ${select('canRegister', 'Can be registered')}
+            ${select('security', 'Security')}
+            ${select('access', 'Access')}
+            ${select('tracker', 'Tracker')}
+            ${select('storage', 'Storage')}
+            ${select('costBand', 'Cost to register')}
+            ${select('cls', 'Vehicle class')}
+            <label class="vf vf-check"><input type="checkbox" class="v-onmap" ${this.q.onMapOnly ? 'checked' : ''}> On the map only (${onMap})</label>
+          </div>
+        </details>
       </div>
       <div class="v-count muted small" aria-live="polite"></div>
       <ul class="v-grid"></ul>`;
@@ -164,7 +194,10 @@ export class VehiclesView {
     syncUrl({ v: v.slug } );
     const p = price(v), sell = sellValue(v), tr = tracker(v);
     const locs = this.locs(v);
-    const security = field(v, /security|alarm/i), cloner = field(v, /key ?clon|keyless/i);
+    const security = v.security ?? field(v, /security|alarm/i);
+    const access = v.access ?? field(v, /^access$|key ?clon|keyless/i);
+    const canReg = v.canRegister ?? field(v, /can be registered/i);
+    const storage = v.storage ?? field(v, /^storage$/i);
     const variants = v.fields?.find((f) => /variant/i.test(f.label))?.items ?? [];
     const info = (v.fields ?? []).filter((f) => !SHOWN.test(f.label));
     const linkItems = (items: { name: string; url: string }[]) => items.map((i) => {
@@ -184,11 +217,13 @@ export class VehiclesView {
         <ul class="v-locs">${locs.map((l) => `<li><button class="hit v-loc" data-m="${esc(l.id)}">${hitIco(l.category, l.color)}<span class="hit-text"><b>${esc(l.name)}</b><small>${esc(l.catName)}${l.found ? ' · Found ✓' : ''}</small></span>${glyphSvg('chevron_right', 20)}</button></li>`).join('')}</ul>` : '<p class="muted small v-noloc">Not on the map yet.</p>'}
         <h3 class="sec-h">How to get</h3>
         <dl class="v-kv">
-          <dt>Cost to register</dt><dd>${fmtMoney(p) ?? NOT_LISTED}</dd>
+          <dt>Can be registered</dt><dd>${canReg ? esc(canReg) : NOT_LISTED}</dd>
+          <dt>Cost to register</dt><dd>${fmtMoney(p) ?? (v.costBand ? esc(v.costBand) : NOT_LISTED)}</dd>
           <dt>Sell value (stolen)</dt><dd>${fmtMoney(sell) ?? NOT_LISTED}</dd>
           <dt>Tracker</dt><dd>${tr ? `<span class="trk trk-${esc(tr.toLowerCase().replace(/\W+/g, '-'))}">${esc(tr)}</span>` : NOT_LISTED}</dd>
           <dt>Security / alarm</dt><dd>${security ? esc(security) : NOT_LISTED}</dd>
-          <dt>Key cloner</dt><dd>${cloner ? esc(cloner) : NOT_LISTED}</dd>
+          <dt>Access</dt><dd>${access ? esc(access) : NOT_LISTED}</dd>
+          <dt>Storage</dt><dd>${storage === undefined ? NOT_LISTED : String(storage) === '0' ? 'None' : `${esc(String(storage))} slots`}</dd>
         </dl>
         <h3 class="sec-h">Stats</h3>
         <ul class="v-stats">${STAT_NAMES.map((n) => { const s = stat(v, n); return `<li><span>${n}</span><span class="bar"><i style="width:${s === undefined ? 0 : Math.min(100, s * 10)}%"></i></span><b>${s === undefined ? '–' : s.toFixed(1)}</b></li>`; }).join('')}</ul>
@@ -214,14 +249,15 @@ export class VehiclesView {
     if (t.closest('.v-close')) return this.close();
     if (t.closest('.v-back')) return this.showList();
     if (t.closest('.v-switch')) { this.close(); this.d.onWeapons?.(); return; }
-    const type = t.closest<HTMLElement>('[data-type]')?.dataset.type as VehicleQuery['type'];
-    if (type) {
-      this.q.type = type;
-      t.closest('.v-type')!.querySelectorAll('[data-type]').forEach((b) => b.setAttribute('aria-checked', String((b as HTMLElement).dataset.type === type)));
-      void setSetting('vehicles.query', { sort: this.q.sort, cls: this.q.cls, maker: this.q.maker, type: this.q.type });
-      this.renderGrid();
+    if (t.closest('.v-clear')) {
+      e.preventDefault();
+      for (const k of FACET_KEYS) this.q[k] = undefined;
+      this.q.realLife = undefined; this.q.onMapOnly = false;
+      this.saveQuery();
+      this.showList();
       return;
     }
+    if (t.closest('.v-filters > summary')) { setTimeout(() => { this.filtersOpen = !!this.el.querySelector<HTMLDetailsElement>('.v-filters')?.open; }); return; }
     const mid = t.closest<HTMLElement>('.v-loc')?.dataset.m;
     if (mid) { if (this.d.onOpenMarker?.(mid)) this.close(); return; }
     const slug = t.closest<HTMLElement>('[data-v]')?.dataset.v;

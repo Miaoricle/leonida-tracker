@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { queryVehicles, price, sellValue, tracker, money, counts, matchVehicleMarkers, type Vehicle } from '../../src/data/vehicles';
+import { facetOptions, UNKNOWN, queryVehicles, price, sellValue, tracker, money, counts, matchVehicleMarkers, type Vehicle } from '../../src/data/vehicles';
 
 // synthetic test vehicles (not GTABase data)
 const v = (o: Partial<Vehicle> & { name: string }): Vehicle => ({ id: o.name, slug: o.name.toLowerCase(), url: `u/${o.name}`, class: ['Sports'], ...o });
@@ -28,8 +28,9 @@ describe('vehicles', () => {
   });
   it('filters by class, maker, standout and accent-insensitive text', () => {
     expect(queryVehicles(all, { sort: 'name', cls: 'Coupes' }).map((x) => x.name)).toEqual(['Bravo', 'Délta']);
-    expect(queryVehicles(all, { sort: 'name', maker: 'Grotti', type: 'regular' }).map((x) => x.name)).toEqual(['Alpha']);
-    expect(queryVehicles(all, { sort: 'name', type: 'standout' }).map((x) => x.name)).toEqual(['Charlie']);
+    expect(queryVehicles(all, { sort: 'name', maker: 'Grotti', standout: '__none' }).map((x) => x.name)).toEqual(['Alpha']);
+    expect(queryVehicles(all, { sort: 'name', standout: '__any' }).map((x) => x.name)).toEqual(['Charlie']);
+    expect(queryVehicles(all, { sort: 'name', standout: 'Stock Car' }).map((x) => x.name)).toEqual(['Charlie']);
     expect(queryVehicles(all, { sort: 'name', text: 'delta' }).map((x) => x.name)).toEqual(['Délta']);
     expect(counts(all).makers).toEqual([['Annis', 2], ['Grotti', 2]]);
   });
@@ -60,6 +61,30 @@ describe('vehicles on the map', () => {
     expect([...r.values()].flat()).not.toContain('f');
   });
   it('filters to vehicles on the map', () => {
-    expect(queryVehicles(vs, { sort: 'name', type: 'onmap', onMap: (x) => x.name === 'Hellion' }).map((x) => x.name)).toEqual(['Hellion']);
+    expect(queryVehicles(vs, { sort: 'name', onMapOnly: true, onMap: (x) => x.name === 'Hellion' }).map((x) => x.name)).toEqual(['Hellion']);
+  });
+});
+
+describe('GTABase-style filters', () => {
+  const vs = [
+    v({ name: 'Reg', canRegister: 'Yes', security: 'Not Mentioned', access: 'Key', tracker: 'Standard', storage: 4, costToRegister: 6000, costBand: '$5,000 - $10,000' }),
+    v({ name: 'Cheap', canRegister: 'Yes', security: 'Advanced (Key Cloner)', access: 'Keyless (Key Cloner)', tracker: 'None', storage: 0, costBand: 'Under $5,000' }),
+    v({ name: 'Mystery', security: 'Not Mentioned' }),
+  ];
+  it('filters by registration, security, access, tracker, storage and cost band; Unknown = not known yet', () => {
+    const names = (q: object) => queryVehicles(vs, { sort: 'name', ...q }).map((x) => x.name);
+    expect(names({ canRegister: 'Yes' })).toEqual(['Cheap', 'Reg']);
+    expect(names({ canRegister: UNKNOWN })).toEqual(['Mystery']);
+    expect(names({ access: 'Keyless (Key Cloner)' })).toEqual(['Cheap']);
+    expect(names({ tracker: 'Standard', security: 'Not Mentioned' })).toEqual(['Reg']);
+    expect(names({ storage: '0' })).toEqual(['Cheap']);
+    expect(names({ costBand: 'Under $5,000' })).toEqual(['Cheap']);
+  });
+  it('lists dropdown options with counts, money bands in price order, Unknown last', () => {
+    expect(facetOptions(vs, 'costBand')).toEqual([['Under $5,000', 1], ['$5,000 - $10,000', 1], [UNKNOWN, 1]]);
+    expect(facetOptions(vs, 'storage')).toEqual([['0', 1], ['4', 1], [UNKNOWN, 1]]);
+  });
+  it('uses the list price when the detail page has none', () => {
+    expect(queryVehicles(vs, { sort: 'price-asc' }).map((x) => x.name)[0]).toBe('Reg');
   });
 });
