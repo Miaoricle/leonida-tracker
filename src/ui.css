@@ -36,8 +36,6 @@ html[data-sheet="full"] .controls { visibility: hidden; }
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); will-change: transform;
   padding-left: var(--safe-l); padding-right: var(--safe-r);
-  /* the part pushed below the screen is padding, so the scroll area ends at the visible edge (last rows reachable at half height) */
-  box-sizing: border-box; padding-bottom: calc(var(--sheet-h, 90vh) - var(--sheet-vis, var(--sheet-h, 90vh)));
 }
 .sheet[data-snap="closed"] { visibility: hidden; transition: transform 0.28s, visibility 0s 0.28s; }
 .sheet-grab { padding: 8px 0 2px; display: grid; place-items: center; touch-action: none; cursor: grab; }
@@ -49,7 +47,6 @@ html[data-sheet="full"] .controls { visibility: hidden; }
 
 @media (min-width: 900px) {
   .sheet-sidebar {
-    padding-bottom: 0;
     left: 0; right: auto; top: 0; bottom: 0; width: 380px; height: auto !important; border-radius: 0 18px 18px 0;
     transform: translateX(-105%) !important; box-shadow: 6px 0 24px rgba(0, 0, 0, 0.5);
   }
@@ -134,7 +131,7 @@ html[data-sheet="full"] .controls { visibility: hidden; }
 :root { --nav-h: 0px; }
 html.has-nav { --nav-h: calc(60px + var(--safe-b)); }
 .navbar {
-  position: fixed; z-index: 950; left: 0; right: 0; bottom: 0; height: var(--nav-h);
+  position: fixed; z-index: 890; left: 0; right: 0; bottom: 0; height: var(--nav-h);
   padding: 0 calc(var(--safe-r) + 4px) var(--safe-b) calc(var(--safe-l) + 4px);
   display: grid; grid-template-columns: repeat(5, 1fr);
   background: var(--panel-solid); border-top: 1px solid rgba(var(--ov), 0.1); box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.25);
@@ -150,8 +147,7 @@ html.has-nav { --nav-h: calc(60px + var(--safe-b)); }
 .navbar button:active .nav-ico { transform: scale(0.94); }
 .navbar button:focus-visible { outline: 2px solid #4fc3f7; outline-offset: -4px; border-radius: 12px; }
 /* make room for the bar: map controls above it, tab screens end at it, toasts float over it */
-.has-nav .controls { bottom: calc(var(--nav-h) + var(--sheet-lift, 0px) + 12px); }
-.has-nav .sheet:not(.sheet-sidebar) { bottom: var(--nav-h); }
+.has-nav .controls { bottom: calc(max(var(--nav-h) + 12px, var(--sheet-lift, 0px) + 12px)); }
 .has-nav .vehicles { bottom: var(--nav-h); padding-bottom: 24px; }
 .has-nav .toasts { bottom: calc(var(--nav-h) + 76px); }
 @media (min-width: 900px) {

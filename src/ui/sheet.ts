@@ -51,8 +51,7 @@ export class Sheet {
   get wide() { return !!this.opts.sidebar && WIDE.matches; }
 
   private heights(): Record<Snap, number> {
-    const nav = document.querySelector<HTMLElement>('.navbar')?.offsetHeight ?? 0; // sheets sit above the bottom bar
-    const vh = window.innerHeight - nav;
+    const vh = window.innerHeight;
     const safeTop = safeAreaTop();
     return { closed: 0, peek: this.opts.peekHeight ?? 150, half: Math.round(vh * 0.52), full: vh - safeTop - 12 };
   }
@@ -62,7 +61,6 @@ export class Sheet {
     const target = px ?? h[this.snap];
     this.el.style.transition = animate && !reduced() ? '' : 'none';
     this.el.style.setProperty('--sheet-h', `${h.full}px`);
-    if (this.snap !== 'closed') this.el.style.setProperty('--sheet-vis', `${Math.max(0, target)}px`); // keep content while it slides away
     this.el.style.transform = this.wide ? '' : `translateY(${h.full - target}px)`;
     this.el.dataset.snap = this.snap;
     // lift the floating map controls above a bottom sheet so zoom stays reachable
